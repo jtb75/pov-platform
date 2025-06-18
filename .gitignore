@@ -1,2 +1,43 @@
-.kube
+# Python virtual environments
+backend-venv/
+db-manager-venv/
+venv/
 .env
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Alembic migration artifacts
+db-manager/alembic/versions/*.pyc
+
+# Node modules
+frontend/node_modules/
+frontend/.env
+
+# Build artifacts
+*.log
+*.sqlite3
+*.db
+*.egg-info/
+dist/
+build/
+*.bak
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor/project files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker
+*.pid
+
+# Kubernetes
+*.yaml~
+.kube/
