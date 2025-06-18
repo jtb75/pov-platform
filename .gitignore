@@ -3,6 +3,7 @@ backend-venv/
 db-manager-venv/
 venv/
 .env
+*-venv
 
 # Python bytecode
 __pycache__/
