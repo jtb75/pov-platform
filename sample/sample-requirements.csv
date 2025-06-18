@@ -1,0 +1,94 @@
+category,requirement,product,doc_link,tenant_link
+Democratized access to review issues,Able to RBAC a view of the relevant applications resources and infrastructure to the approriate team.,Defend,,
+Democratized access to review issues,Able to automate team access,Defend,,
+Democratized access to review issues,Integrates with SSO,Defend,,
+Full Stack Attack Vector & Risk Analysis,Identify Risk-Prioritized Issues,Cloud,https://docs.wiz.io/wiz-docs/docs/issues ,https://app.wiz.io/issues
+Full Stack Attack Vector & Risk Analysis,Able to remediate critical issues,Cloud,https://docs.wiz.io/wiz-docs/docs/risk-specific-use-cases,https://app.wiz.io/issues
+Full Stack Attack Vector & Risk Analysis,Able to view the Issue in the Security Graph and follow the remediation recommendations,Cloud,https://docs.wiz.io/wiz-docs/docs/security-graph ,
+Complete Network Exposure Visibility,Follow up on Security Issues in the External Exposure dashboard,Cloud,https://docs.wiz.io/wiz-docs/docs/external-exposure ,https://app.wiz.io/
+Complete Network Exposure Visibility,Identify Exposed Resources from the Network Exposure Report,Cloud,https://docs.wiz.io/wiz-docs/docs/network-exposure ,https://app.wiz.io/explorer/network-exposure/public-internet
+Complete Network Exposure Visibility,Identify Externally Exposed data buckets and database servers using the Security Graph,Cloud,,https://app.wiz.io/graph
+Complete Network Exposure Visibility,Able to view true network exposure path for containers,Cloud,,https://app.wiz.io/graph
+Identity Analysis and Visibility,Follow up on Security Issues in the Cloud Entitlements dashboard,Cloud,https://docs.wiz.io/wiz-docs/docs/cloud-entitlements,https://app.wiz.io/
+Identity Analysis and Visibility,Able to identify effective entitlements and document over-privileged entities,Cloud,,
+Identity Analysis and Visibility,Able to detect Excessive Permissions in your cloud environments using the Excessive Access Findings,Cloud,,https://app.wiz.io/graph
+Identity Analysis and Visibility,"Able to detect weak security measures on user accounts (e.g. missing MFA, Inactive keys etc.)",Cloud,,
+Identity Analysis and Visibility,Able to identify and investigate Lateral Movement Findings and potential Attack Path Analysis.,Cloud,,https://app.wiz.io/graph
+Exposed Secrets Analysis,Follow up on Security Issues in the Secure Use of Secrets dashboard,Cloud,https://docs.wiz.io/wiz-docs/docs/sec-secrets,https://app.wiz.io/
+Exposed Secrets Analysis,Able to search and identify Cloud keys stored on your cloud resources,Cloud,,https://app.wiz.io/graph
+Exposed Secrets Analysis,"Able to detect unwanted or weak secrets on workloads (e.g. certificates, SSH keys, DB connection strings, etc.)",Cloud,,
+Exposed Secrets Analysis,Able to correlate roles and service accounts with detected cloud keys and investigate lateral movement scenarios,Cloud,,
+Cross-Account/Environment Risks,Able to onboard multiple cloud accounts/organizations to Wiz,Cloud,https://docs.wiz.io/wiz-docs/docs/connector-basics,https://app.wiz.io/settings/subscriptions
+Cross-Account/Environment Risks,Able to verify if cloud keys are stored on cloud resources,Cloud,,
+Cross-Account/Environment Risks,Able to verify if cloud keys access to another cloud account owned by the organizations and related permissions,Cloud,,
+Cross-Account/Environment Risks,Able to extract the cross-account network analysis report,Cloud,,
+Configuration Risks,Follow up on Security Issues in the Secure Configuration dashboard,Cloud,https://docs.wiz.io/wiz-docs/docs/sec-config,https://app.wiz.io/
+Configuration Risks,Able to generate Reports on Host Configurations and Cloud Configurations,Cloud,https://docs.wiz.io/wiz-docs/docs/sec-host-config,https://app.wiz.io/reports/my-reports/create
+Configuration Risks,Access misconfiguration findings at an individual resource level,Cloud,,https://app.wiz.io/policies/cloud-configuration-rules
+Configuration Risks,Able to create a custom cloud configuration rule in Rego,Cloud,,
+Vulnerability and Malware Assessment,"Follow up on Security Issues in the Vulnerabilities dashboard, the Log4Shell Dashboard and novel threats in the Threat Center",Cloud,https://docs.wiz.io/wiz-docs/docs/vulnerabilities,https://app.wiz.io/
+Vulnerability and Malware Assessment,Search for custom queries using the Security Graph,Cloud,https://docs.wiz.io/wiz-docs/docs/security-graph,https://app.wiz.io/graph
+Vulnerability and Malware Assessment,Able to browse the Vulnerability Catalog to view specific CVEs,Cloud,https://docs.wiz.io/wiz-docs/docs/vulnerability-findings,https://app.wiz.io/policies/vulnerability-catalog
+Vulnerability and Malware Assessment,Able to validate which vulnerabilities are being executed at runtime. (Wiz Sensor),Cloud,,
+Vulnerability and Malware Assessment,"Able to visualize the process, command line, and loaded module/file that confirmed the vulnerability during runtime. (Wiz Sensor)",Cloud,,
+Vulnerability and Malware Assessment,Follow up on Security issues in the Malware dashboard,Cloud,https://docs.wiz.io/wiz-docs/docs/malware,https://app.wiz.io/
+Vulnerability and Malware Assessment,"Able to leverage Custom File detection, to test the Threat Hunting capability of Wiz",Cloud,https://docs.wiz.io/wiz-docs/docs/custom-file-detection,https://app.wiz.io/settings/scanners
+Technology Stack Analysis,Investigate your Cloud Inventory,Cloud,https://docs.wiz.io/wiz-docs/docs/technologies,https://app.wiz.io/inventory/technologies
+Technology Stack Analysis,Able to perform queries using the Security Graph related to technologies deployed (e.g. identify all workloads that don't have Endpoint Security deployed).,Cloud,,
+Technology Stack Analysis,Able to flag Unwanted technologies,Cloud,,https://app.wiz.io/inventory/technologies
+Container Orchestrator Risks,Follow up on Security Issues in the Containers dashboard,Cloud,https://docs.wiz.io/wiz-docs/docs/containers,https://app.wiz.io/
+Container Orchestrator Risks,Able to identify container platform misconfigurations and investigate a cluster using the Security Graph,Cloud,https://docs.wiz.io/wiz-docs/docs/container-security#container-coverage,
+Container Orchestrator Risks,Able to identify risks on Serverless Containers (E.g. ECS Fargate),Cloud,,
+Data Security,You were able to investigate the Data Risks on the Dashboard > Data Security,Cloud,,
+Data Security,You were able to check the Data Classifiers in Wiz including the custom classifiers,Cloud,,
+Data Security,You are able to investigate the Data Inventory through the graph,Cloud,,
+Data Security,You are able to view Data findings in Explorer > Data findings,Cloud,,
+AI-SPM,"You are able to detect every AI technology, service, and SDK on the Inventory -> Application -> Machine learning & AI",Cloud,,https://app.wiz.io/inventory/technologies/APPLICATION_AND_DATA/36
+AI-SPM,You are able to detect AI services misconfigurations,Cloud,,
+AI-SPM,You were able to investigate the AI risks on the Dashboard > AI Security,Cloud,,https://demo.wiz.io/
+AI-SPM,You are able to visualize AI pipelines through the graph,Cloud,,
+"Compliance, Product Security Reporting & Trends","Defined one or more Wiz Projects (incl. their risk classification: LBI, MBI, HBI)",Cloud,https://docs.wiz.io/wiz-docs/docs/projects,https://app.wiz.io/projects
+"Compliance, Product Security Reporting & Trends",Reviewed Cloud Compliance on a Single or Cross-Framework level,Cloud,https://docs.wiz.io/wiz-docs/docs/compliance,https://app.wiz.io/compliance/framework
+"Compliance, Product Security Reporting & Trends",Generated an Executive Compliance Report,Cloud,https://docs.wiz.io/wiz-docs/docs/reports,https://app.wiz.io/reports/my-reports/create/compliance-executive-summary
+"Compliance, Product Security Reporting & Trends",Familiarized with the Issue burn down chart and resolution patterns in Wiz,Cloud,https://docs.wiz.io/wiz-docs/docs/issues,https://app.wiz.io/issues
+Dynamic Scanning,Enabled the Dynamic Scanner in the Settings page,Cloud,https://docs.wiz.io/wiz-docs/docs/dynamic-scanner,https://app.wiz.io/settings/scanners
+Dynamic Scanning,Able to view validated open application endpoints,Cloud,,https://app.wiz.io/graph
+Cloud Events & Detection,Able to connect your Cloud Providers audit log into Wiz,Cloud,https://docs.wiz.io/wiz-docs/docs/cloud-events,
+Cloud Events & Detection,Able to view Cloud Events in the Explorer tab,Cloud,,https://app.wiz.io/cloud-events
+Cloud Events & Detection,Ablet to view Cloud Events at a cloud resource level,Cloud,,
+Cloud Events & Detection,Investigate Findings in the Cloud Events rules page,Cloud,https://docs.wiz.io/wiz-docs/docs/cloud-event-rules,https://app.wiz.io/policies/cloud-event-rules
+Container Workload Runtime Sensor,Ability to easily deploy the sensor as a daemonset using Helm charts,Cloud,,
+Container Workload Runtime Sensor,"You were able to detect malicious behavior (process, file, network and system call events) in real-time using Wiz Sensor evaluation guide (Full or lite).",Cloud,,
+Container Workload Runtime Sensor,You were able to detect execution of malware (based on reputation) in real-time. ​,Cloud,,
+Container Workload Runtime Sensor,You were able to detect connections to malicious domains and Ips based on their reputation.​,Cloud,,
+Container Workload Runtime Sensor,You were able to correlate workload (container/host) runtime signals with cloud activity (cloud logs) to gain full visibility on end-to-end attacks​,Cloud,,
+Container Workload Runtime Sensor,"You were able to inspect runtime forensic execution data on a container/host (e.g., see full list of all process executions, command lines, network connections, contacted domains by each container and the host)",Cloud,,
+Shift Security to the Left,"Able to scan container images, AMIs, or VMs for vulnerabilities and secrets","Cloud,Code",https://docs.wiz.io/wiz-docs/docs/using-wiz-cli,
+Shift Security to the Left,"Able to create and show code to cloud context for secrets, vulnerabilities, and/or senstiive data","Cloud,Code",,
+Shift Security to the Left,Able to create a Code SBOM with software licensing information,"Cloud,Code",,
+Shift Security to the Left,"Able to scan IaC templates (Terraform, CloudFormation, etc.) against cloud configuration policies","Cloud,Code",,
+Shift Security to the Left,Able to define a custom CI/CD policy,"Cloud,Code",https://docs.wiz.io/wiz-docs/docs/wiz-cli-int,https://app.wiz.io/policies/cicd-policies
+Shift Security to the Left,Can we apply security guardrails earlier in the SDLC process via IDE/Workstation?,"Cloud,Code",,
+Shift Security to the Left,Able to investigate and/or integrate the Wiz-CLI in your CI/CD pipeline,Cloud,,
+Container Lifecycle Scanning,Able to connect your container registry to scan images for vulnerabilities,Cloud,https://docs.wiz.io/wiz-docs/docs/registry-scanning,
+Container Lifecycle Scanning,"Provide full image tracability across repo, pipeline, registry, and deployment","Cloud,Code",,
+Container Lifecycle Scanning,Open the container images inventory to view security findings,Cloud,,
+Core Integration: Easily integrate Defend into your cloud stack,"Onboarding of AWS CloudTrail, Azure Activity Logs, and GCP Audit Logs",Defend,,
+Core Integration: Easily integrate Defend into your cloud stack,Onboarding of <Other relevant telemetry sources for the customer>,Defend,,
+Core Integration: Easily integrate Defend into your cloud stack,Deployment of Wiz sensor,Defend,,
+Breach Readiness Assessment: Gain detailed visibility into cloud log detections and blind spots,Collect complete inventory of cloud resources,Defend,,
+Breach Readiness Assessment: Gain detailed visibility into cloud log detections and blind spots,Present clear state of current logging coverage and gaps,Defend,,
+Breach Readiness Assessment: Gain detailed visibility into cloud log detections and blind spots,Provide granular and prioritized recommendations for improved logging and controls,Defend,,
+Threat Detection,Demonstrate detection capabilities based on TDRs shared in product portal,Defend,,
+Threat Detection,"Demonstrate profile-based detections, such as unusual properties or activities",Defend,,
+Threat Detection,"Demonstrate detection for data-centric TTPs, including those targeting <relevant customer sensitive data stores>",Defend,,
+Threat Detection,"Demonstrate detection for identity-centric TTPs, including those targeting <customer IdP>",Defend,,
+Threat Detection,Demonstrate detections for TTPs targeting compute assets at the host level using the runtime sensor,Defend,,
+Threat Detection,Validate detections based on [customer]'s specific threat scenarios,Defend,,
+Threat Detection,"Customization (if desired), including defining granular exclusions for TTPs and implementing requested adaptations",Defend,,
+Threat Response,Clear timeline and graph for cloud threats,Defend,,
+Threat Response,Correlation of runtime and cloud-native activity within a threat,Defend,,
+Threat Response,Aggregation of cloud threats based on cloud entities,Defend,,
+Threat Response,"Root cause analysis, relevant contextual information, and TTP description",Defend,,
+Threat Response,Containment suggestions with recommended actions or next steps,Defend,,
+Threat Response,Integration with <insert relevant tools used by customer that they want to integrate with>,Defend,,

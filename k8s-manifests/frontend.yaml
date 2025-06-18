@@ -1,0 +1,108 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pov-frontend
+  namespace: pov-platform
+  labels:
+    app: pov-frontend
+spec:
+  replicas: 2
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: pov-frontend
+  template:
+    metadata:
+      labels:
+        app: pov-frontend
+    spec:
+      imagePullSecrets:
+      - name: harbor-registry-secret
+      containers:
+      - name: pov-frontend
+        image: harbor.k8s.ng20.org/pov-platform/frontend:latest
+        ports:
+        - containerPort: 8080
+        livenessProbe:
+          httpGet:
+            path: /health.json
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health.json
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        resources:
+          requests:
+            cpu: "250m"
+            memory: "256Mi"
+          limits:
+            cpu: "250m"
+            memory: "256Mi"
+        env:
+        - name: REACT_APP_GOOGLE_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: google-oauth-secret
+              key: GOOGLE_CLIENT_ID
+        securityContext:
+          capabilities:
+            drop:
+              - ALL
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pov-frontend
+  namespace: pov-platform
+spec:
+  selector:
+    app: pov-frontend
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: pov-platform-ingress
+  namespace: pov-platform
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - pov-platform.k8s.ng20.org
+    secretName: pov-platform-tls
+  rules:
+  - host: pov-platform.k8s.ng20.org
+    http:
+      paths:
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: pov-backend
+            port:
+              number: 8000
+      - path: /public-google-client-id
+        pathType: Prefix
+        backend:
+          service:
+            name: pov-backend
+            port:
+              number: 8000
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: pov-frontend
+            port:
+              number: 80 

@@ -1,0 +1,49 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: pov-db-manager
+  namespace: pov-platform
+spec:
+  template:
+    metadata:
+      labels:
+        app: pov-db-manager
+    spec:
+      imagePullSecrets:
+      - name: harbor-registry-secret
+      restartPolicy: Never
+      containers:
+      - name: pov-db-manager
+        image: harbor.k8s.ng20.org/pov-platform/db-manager:latest
+        env:
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: pov-db-secret
+              key: POSTGRES_USER
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: pov-db-secret
+              key: POSTGRES_PASSWORD
+        - name: POSTGRES_DB
+          valueFrom:
+            secretKeyRef:
+              name: pov-db-secret
+              key: POSTGRES_DB
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: pov-db-secret
+              key: DATABASE_URL
+        securityContext:
+          capabilities:
+            drop:
+              - ALL
+        resources:
+          requests:
+            cpu: "250m"
+            memory: "256Mi"
+          limits:
+            cpu: "250m"
+            memory: "256Mi" 
