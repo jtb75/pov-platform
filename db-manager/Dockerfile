@@ -7,13 +7,13 @@ COPY db-manager/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY db-manager/. .
-COPY backend ./backend
+COPY backend/. ./backend
 
 # Use a non-root user
 RUN useradd -m appuser
 USER appuser
 
-ENV PYTHONPATH="/app/backend"
+ENV PYTHONPATH="/app"
 
 CMD ["alembic", "upgrade", "head"]
 

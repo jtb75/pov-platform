@@ -2,12 +2,12 @@ from fastapi import FastAPI, Depends, HTTPException, status, Body, Request, APIR
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from google.oauth2 import id_token
 from google.auth.transport import requests as grequests
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import os
 from dotenv import load_dotenv
-from sqlalchemy.orm import Session
-from backend.db import SessionLocal, User as DBUser, engine, Base, log_audit_action, Requirement, AuditLog, SuccessCriteria, SuccessCriteriaRequirement
-from sqlalchemy import and_, text
+from sqlalchemy.orm import Session, joinedload
+from backend.db import SessionLocal, User as DBUser, engine, Base, log_audit_action, Requirement, AuditLog, SuccessCriteriaDocument, SuccessCriteriaDocumentRequirement
+from sqlalchemy import and_, text, func
 import time
 import sys
 import platform
@@ -17,6 +17,9 @@ import csv
 from datetime import datetime, timedelta
 from typing import List, Optional
 import jwt
+from fastapi.responses import Response
+import logging
+from sqlalchemy.exc import IntegrityError
 
 load_dotenv()
 
@@ -42,6 +45,59 @@ class User(BaseModel):
 class UserDetails(User):
     created_at: datetime
     last_login: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+class RequirementIn(BaseModel):
+    category: str
+    requirement: str
+    product: str | None = None
+    doc_link: str | None = None
+    tenant_link: str | None = None
+
+class RequirementMassEdit(BaseModel):
+    category: str | None = None
+    product: str | None = None
+
+class RequirementOut(RequirementIn):
+    id: int
+    created_at: datetime
+    created_by: str
+    updated_at: datetime | None = None
+    updated_by: str | None = None
+
+    class Config:
+        from_attributes = True
+
+# Schemas for Success Criteria Documents
+class SCDRequirementIn(BaseModel):
+    category: str
+    requirement: str
+    product: Optional[str] = None
+    doc_link: Optional[str] = None
+    tenant_link: Optional[str] = None
+    original_requirement_id: Optional[int] = None
+    order: int
+
+class SCDRequirementOut(SCDRequirementIn):
+    id: int
+    document_id: int
+
+    class Config:
+        from_attributes = True
+
+class SCDIn(BaseModel):
+    name: str
+    description: Optional[str] = None
+    requirements: List[SCDRequirementIn] = []
+
+class SCDOut(SCDIn):
+    id: int
+    owner: User
+    created_at: datetime
+    updated_at: datetime
+    requirements: List[SCDRequirementOut] = []
 
     class Config:
         from_attributes = True
@@ -263,33 +319,9 @@ def health_check(db: Session = Depends(get_db)):
 def proxy_db_health():
     try:
         resp = requests.get(DB_MANAGER_URL, timeout=2)
-        return resp.json()
+        return Response(content=resp.content, status_code=resp.status_code, media_type=resp.headers['Content-Type'])
     except Exception as e:
         return {"status": "error", "error": str(e)}
-
-# Pydantic model for API
-from pydantic import BaseModel as PydanticBaseModel
-class RequirementIn(PydanticBaseModel):
-    category: str
-    requirement: str
-    product: str | None = None
-    doc_link: str | None = None
-    tenant_link: str | None = None
-
-class RequirementMassEdit(PydanticBaseModel):
-    category: str | None = None
-    product: str | None = None
-
-class RequirementOut(RequirementIn):
-    id: int
-    created_at: datetime
-    created_by: str
-    updated_at: datetime | None = None
-    updated_by: str | None = None
-
-    class Config:
-        from_attributes = True
-        orm_mode = True
 
 @router.get("/requirements", response_model=list[RequirementOut])
 def list_requirements(db: Session = Depends(get_db)):
@@ -378,32 +410,42 @@ def bulk_upload_requirements(file: UploadFile = File(...), db: Session = Depends
                 doc_link=row.get('doc_link', None),
                 tenant_link=row.get('tenant_link', None),
                 created_at=now,
-                created_by=user.email,
-                updated_at=now,
-                updated_by=user.email,
+                created_by=user.email
             )
             db.add(db_req)
             new_reqs.append(db_req)
         db.commit()
+
+        for req in new_reqs:
+            db.refresh(req)
+
         log_audit_action(
             db,
             action="bulk_upload_requirements",
             user_email=user.email,
-            details=f"Bulk uploaded {len(new_reqs)} requirements",
+            details=f"Bulk uploaded {len(new_reqs)} requirements from file {file.filename}",
             ip_address=request.client.host if request else None,
         )
+
         return {"count": len(new_reqs)}
-    except HTTPException:
-        raise
     except Exception as e:
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Bulk upload failed: {str(e)}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to process CSV file: {str(e)}")
 
 @router.post("/requirements/mass-delete")
 def mass_delete_requirements(ids: list[int] = Body(...), db: Session = Depends(get_db), user: User = Depends(get_current_user), request: Request = None):
-    deleted = db.query(Requirement).filter(Requirement.id.in_(ids)).delete(synchronize_session=False)
+    reqs_to_delete = db.query(Requirement).filter(Requirement.id.in_(ids)).all()
+    
+    if not reqs_to_delete:
+        return {"deleted": 0}
+
+    num_deleted = len(reqs_to_delete)
+
+    for req in reqs_to_delete:
+        db.delete(req)
+        
     db.commit()
+
     log_audit_action(
         db,
         action="mass_delete_requirements",
@@ -411,7 +453,7 @@ def mass_delete_requirements(ids: list[int] = Body(...), db: Session = Depends(g
         details=f"Mass deleted requirements ids={ids}",
         ip_address=request.client.host if request else None,
     )
-    return {"deleted": deleted}
+    return {"deleted": num_deleted}
 
 @router.post("/requirements/mass-edit")
 def mass_edit_requirements(
@@ -420,293 +462,242 @@ def mass_edit_requirements(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    now = datetime.utcnow().isoformat()
-    update_dict = {}
-    if updates.category not in (None, ""):
-        update_dict[Requirement.category] = updates.category
-    if updates.product not in (None, ""):
-        update_dict[Requirement.product] = updates.product
-    update_dict[Requirement.updated_at] = now
-    update_dict[Requirement.updated_by] = user.email
-    updated = db.query(Requirement).filter(Requirement.id.in_(ids)).update(update_dict, synchronize_session=False)
+    if not ids:
+        raise HTTPException(status_code=400, detail="No requirement IDs provided.")
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admins only")
+        
+    query = db.query(Requirement).filter(Requirement.id.in_(ids))
+    
+    update_data = updates.dict(exclude_unset=True)
+    update_data["updated_at"] = datetime.utcnow()
+    update_data["updated_by"] = user.email
+
+    updated_count = query.update(update_data, synchronize_session=False)
     db.commit()
-    return {"updated": updated}
+
+    log_audit_action(
+        db,
+        action="mass_edit_requirements",
+        user_email=user.email,
+        details=f"Mass edited {updated_count} requirements with updates: {updates.dict(exclude_unset=True)} on IDs: {ids}",
+    )
+    
+    return {"message": f"Successfully updated {updated_count} requirements."}
 
 @router.get("/requirements/template")
 def download_template():
-    from fastapi.responses import StreamingResponse
-    import io
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(["category", "requirement", "product", "doc_link", "tenant_link"])
-    output.seek(0)
-    return StreamingResponse(output, media_type="text/csv", headers={"Content-Disposition": "attachment; filename=sample-requirements.csv"})
+    output = [
+        ["category", "requirement", "product", "doc_link", "tenant_link"],
+        ["General", "This is an example requirement.", "Product A", "http://docs.example.com/a", "http://tenant.example.com/a"],
+    ]
+    
+    # Using Response to manually set headers
+    content = ""
+    with open('temp_template.csv', 'w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerows(output)
+    
+    with open('temp_template.csv', 'r') as f:
+        content = f.read()
+        
+    os.remove('temp_template.csv')
 
-class SuccessCriteriaRequirementIn(BaseModel):
-    requirement_id: Optional[int] = None  # If referencing a DB requirement
-    custom_text: Optional[str] = None     # If custom text
-    order: Optional[int] = None
+    return Response(content=content, media_type="text/csv", headers={"Content-Disposition": "attachment; filename=requirements_template.csv"})
 
-class SuccessCriteriaIn(BaseModel):
-    title: str
-    description: Optional[str] = None
-    shared_with: Optional[List[str]] = []
-    requirements: Optional[List[SuccessCriteriaRequirementIn]] = []
+# --- Success Criteria Document Endpoints ---
 
-class SuccessCriteriaRequirementOut(SuccessCriteriaRequirementIn):
-    id: int
-    requirement: Optional[RequirementOut] = None
-
-    class Config:
-        orm_mode = True
-
-class SuccessCriteriaOut(BaseModel):
-    id: int
-    title: str
-    description: Optional[str] = None
-    owner_email: str
-    created_at: datetime
-    updated_at: Optional[datetime] = None
-    shared_with: Optional[List[str]] = []
-    requirements: List[SuccessCriteriaRequirementOut] = []
-
-    class Config:
-        orm_mode = True
-
-def parse_shared_with(shared_with: Optional[str]) -> List[str]:
-    if not shared_with:
-        return []
-    return [email.strip() for email in shared_with.split(",") if email.strip()]
-
-def join_shared_with(shared_with: Optional[List[str]]) -> Optional[str]:
-    if not shared_with:
-        return None
-    return ",".join(shared_with)
-
-@router.get("/success-criteria", response_model=List[SuccessCriteriaOut])
-def list_success_criteria(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    # Show owned or shared with user
-    q = db.query(SuccessCriteria).filter(
-        (SuccessCriteria.owner_email == user.email) |
-        (SuccessCriteria.shared_with.ilike(f"%{user.email}%"))
-    )
-    results = q.all()
-    out = []
-    for sc in results:
-        out.append(SuccessCriteriaOut(
-            id=sc.id,
-            title=sc.title,
-            description=sc.description,
-            owner_email=sc.owner_email,
-            created_at=sc.created_at,
-            updated_at=sc.updated_at,
-            shared_with=parse_shared_with(sc.shared_with),
-            requirements=[
-                SuccessCriteriaRequirementOut(
-                    id=r.id,
-                    requirement_id=r.requirement_id,
-                    custom_text=r.custom_text,
-                    order=r.order,
-                    requirement=RequirementOut.from_orm(r.requirement) if r.requirement else None
-                ) for r in sorted(sc.requirements, key=lambda x: (x.order or 0, x.id))
-            ]
-        ))
-    return out
-
-@router.post("/success-criteria", response_model=SuccessCriteriaOut)
-def create_success_criteria(
-    data: SuccessCriteriaIn,
+@router.post("/scd", response_model=SCDOut, status_code=status.HTTP_201_CREATED)
+def create_scd(
+    scd_in: SCDIn,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-    request: Request = None,
+    request: Request = None
 ):
-    now = datetime.utcnow()
-    sc = SuccessCriteria(
-        title=data.title,
-        description=data.description,
-        owner_email=user.email,
-        created_at=now,
-        updated_at=now,
-        shared_with=join_shared_with(data.shared_with),
+    db_user = db.query(DBUser).filter(DBUser.email == user.email).first()
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    new_scd = SuccessCriteriaDocument(
+        name=scd_in.name,
+        description=scd_in.description,
+        owner_id=db_user.id
     )
-    db.add(sc)
-    db.flush()  # Get sc.id
-    # Add requirements
-    for i, req in enumerate(data.requirements or []):
-        scr = SuccessCriteriaRequirement(
-            success_criteria_id=sc.id,
-            requirement_id=req.requirement_id,
-            custom_text=req.custom_text,
-            order=req.order if req.order is not None else i
+
+    for req_in in scd_in.requirements:
+        new_req = SuccessCriteriaDocumentRequirement(
+            **req_in.dict()
         )
-        db.add(scr)
+        new_scd.requirements.append(new_req)
+    
+    db.add(new_scd)
     db.commit()
-    db.refresh(sc)
+    db.refresh(new_scd)
+
     log_audit_action(
         db,
-        action="create_success_criteria",
-        user_email=user.email,
-        details=f"Created success_criteria id={sc.id}, title={sc.title}",
-        ip_address=request.client.host if request else None,
-    )
-    # Return with requirements
-    sc = db.query(SuccessCriteria).filter(SuccessCriteria.id == sc.id).first()
-    return SuccessCriteriaOut(
-        id=sc.id,
-        title=sc.title,
-        description=sc.description,
-        owner_email=sc.owner_email,
-        created_at=sc.created_at,
-        updated_at=sc.updated_at,
-        shared_with=parse_shared_with(sc.shared_with),
-        requirements=[
-            SuccessCriteriaRequirementOut(
-                id=r.id,
-                requirement_id=r.requirement_id,
-                custom_text=r.custom_text,
-                order=r.order,
-                requirement=RequirementOut.from_orm(r.requirement) if r.requirement else None
-            ) for r in sorted(sc.requirements, key=lambda x: (x.order or 0, x.id))
-        ]
+        "create_scd",
+        user.email,
+        f"Created SCD '{new_scd.name}' (ID: {new_scd.id})",
+        request.client.host if request else None
     )
 
-@router.get("/success-criteria/{sc_id}", response_model=SuccessCriteriaOut)
-def get_success_criteria(sc_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    sc = db.query(SuccessCriteria).filter(SuccessCriteria.id == sc_id).first()
-    if not sc:
-        raise HTTPException(status_code=404, detail="Not found")
-    if sc.owner_email != user.email and user.email not in parse_shared_with(sc.shared_with):
-        raise HTTPException(status_code=403, detail="Forbidden")
-    return SuccessCriteriaOut(
-        id=sc.id,
-        title=sc.title,
-        description=sc.description,
-        owner_email=sc.owner_email,
-        created_at=sc.created_at,
-        updated_at=sc.updated_at,
-        shared_with=parse_shared_with(sc.shared_with),
-        requirements=[
-            SuccessCriteriaRequirementOut(
-                id=r.id,
-                requirement_id=r.requirement_id,
-                custom_text=r.custom_text,
-                order=r.order,
-                requirement=RequirementOut.from_orm(r.requirement) if r.requirement else None
-            ) for r in sorted(sc.requirements, key=lambda x: (x.order or 0, x.id))
-        ]
-    )
+    return new_scd
 
-@router.put("/success-criteria/{sc_id}", response_model=SuccessCriteriaOut)
-def update_success_criteria(
-    sc_id: int,
-    data: SuccessCriteriaIn,
+@router.get("/scd", response_model=List[SCDOut])
+def list_scds(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    db_user = db.query(DBUser).filter(DBUser.email == user.email).first()
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    scds = db.query(SuccessCriteriaDocument).filter(SuccessCriteriaDocument.owner_id == db_user.id).all()
+    return scds
+
+@router.get("/scd/{scd_id}", response_model=SCDOut)
+def get_scd(
+    scd_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    scd = db.query(SuccessCriteriaDocument).filter(SuccessCriteriaDocument.id == scd_id).first()
+
+    if not scd:
+        raise HTTPException(status_code=404, detail="Success Criteria Document not found")
+
+    # For now, only the owner can view. We can add sharing logic later.
+    db_user = db.query(DBUser).filter(DBUser.email == user.email).first()
+    if not db_user or scd.owner_id != db_user.id:
+        raise HTTPException(status_code=403, detail="You do not have permission to view this document.")
+
+    return scd
+
+@router.post("/scd/{scd_id}/clone", response_model=SCDOut, status_code=status.HTTP_201_CREATED)
+def clone_scd(
+    scd_id: int,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-    request: Request = None,
+    request: Request = None
 ):
-    sc = db.query(SuccessCriteria).filter(SuccessCriteria.id == sc_id).first()
-    if not sc:
-        raise HTTPException(status_code=404, detail="Not found")
-    if sc.owner_email != user.email:
-        raise HTTPException(status_code=403, detail="Only owner can update")
-    sc.title = data.title
-    sc.description = data.description
-    sc.updated_at = datetime.utcnow()
-    sc.shared_with = join_shared_with(data.shared_with)
-    # Replace requirements
-    db.query(SuccessCriteriaRequirement).filter(SuccessCriteriaRequirement.success_criteria_id == sc.id).delete()
-    for i, req in enumerate(data.requirements or []):
-        scr = SuccessCriteriaRequirement(
-            success_criteria_id=sc.id,
-            requirement_id=req.requirement_id,
-            custom_text=req.custom_text,
-            order=req.order if req.order is not None else i
-        )
-        db.add(scr)
-    db.commit()
-    db.refresh(sc)
-    log_audit_action(
-        db,
-        action="update_success_criteria",
-        user_email=user.email,
-        details=f"Updated success_criteria id={sc.id}, title={sc.title}",
-        ip_address=request.client.host if request else None,
+    # Use joinedload to efficiently fetch the document and its requirements in one query
+    original_scd = db.query(SuccessCriteriaDocument).options(
+        joinedload(SuccessCriteriaDocument.requirements)
+    ).filter(SuccessCriteriaDocument.id == scd_id).first()
+
+    if not original_scd:
+        raise HTTPException(status_code=404, detail="SCD not found")
+        
+    db_user = db.query(DBUser).filter(DBUser.email == user.email).first()
+    if not db_user or original_scd.owner_id != db_user.id:
+        raise HTTPException(status_code=403, detail="You do not have permission to clone this document.")
+
+    # Create the new document, assigning the current user as the owner
+    cloned_scd = SuccessCriteriaDocument(
+        name=f"[CLONE] {original_scd.name}",
+        description=original_scd.description,
+        owner_id=db_user.id,
     )
-    # Return with requirements
-    sc = db.query(SuccessCriteria).filter(SuccessCriteria.id == sc.id).first()
-    return SuccessCriteriaOut(
-        id=sc.id,
-        title=sc.title,
-        description=sc.description,
-        owner_email=sc.owner_email,
-        created_at=sc.created_at,
-        updated_at=sc.updated_at,
-        shared_with=parse_shared_with(sc.shared_with),
-        requirements=[
-            SuccessCriteriaRequirementOut(
-                id=r.id,
-                requirement_id=r.requirement_id,
-                custom_text=r.custom_text,
-                order=r.order,
-                requirement=RequirementOut.from_orm(r.requirement) if r.requirement else None
-            ) for r in sorted(sc.requirements, key=lambda x: (x.order or 0, x.id))
-        ]
+    
+    # Create new requirement instances, copying the data from the originals
+    cloned_scd.requirements = [
+        SuccessCriteriaDocumentRequirement(
+            category=original_req.category,
+            requirement=original_req.requirement,
+            product=original_req.product,
+            doc_link=original_req.doc_link,
+            tenant_link=original_req.tenant_link,
+            original_requirement_id=original_req.original_requirement_id,
+            order=original_req.order
+        ) for original_req in original_scd.requirements
+    ]
+        
+    db.add(cloned_scd)
+    db.commit()
+    db.refresh(cloned_scd)
+    
+    log_audit_action(
+        db, "clone_scd", user.email,
+        f"Cloned SCD '{original_scd.name}' (ID: {original_scd.id}) to new SCD '{cloned_scd.name}' (ID: {cloned_scd.id})",
+        request.client.host if request else None
     )
 
-@router.delete("/success-criteria/{sc_id}")
-def delete_success_criteria(sc_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db), request: Request = None):
-    sc = db.query(SuccessCriteria).filter(SuccessCriteria.id == sc_id).first()
-    if not sc:
-        raise HTTPException(status_code=404, detail="Not found")
-    if sc.owner_email != user.email:
-        raise HTTPException(status_code=403, detail="Only owner can delete")
-    db.query(SuccessCriteriaRequirement).filter(SuccessCriteriaRequirement.success_criteria_id == sc.id).delete()
-    db.delete(sc)
+    return cloned_scd
+
+class UpdateSCDRequirementsIn(BaseModel):
+    requirement_ids: List[int]
+
+@router.put("/scd/{scd_id}/requirements", response_model=SCDOut)
+def add_requirements_to_scd(
+    scd_id: int,
+    data: UpdateSCDRequirementsIn,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    # Fetch the document and check ownership
+    scd = db.query(SuccessCriteriaDocument).filter(SuccessCriteriaDocument.id == scd_id).first()
+    if not scd:
+        raise HTTPException(status_code=404, detail="SCD not found")
+    
+    db_user = db.query(DBUser).filter(DBUser.email == user.email).first()
+    if not db_user or scd.owner_id != db_user.id:
+        raise HTTPException(status_code=403, detail="You do not have permission to modify this document.")
+
+    # Get the highest current order
+    highest_order = db.query(func.max(SuccessCriteriaDocumentRequirement.order)).filter_by(document_id=scd_id).scalar() or -1
+
+    # Fetch master requirements to be copied
+    master_requirements = db.query(Requirement).filter(Requirement.id.in_(data.requirement_ids)).all()
+    if len(master_requirements) != len(data.requirement_ids):
+        raise HTTPException(status_code=404, detail="One or more master requirements not found.")
+
+    for i, master_req in enumerate(master_requirements):
+        new_req = SuccessCriteriaDocumentRequirement(
+            document_id=scd_id,
+            category=master_req.category,
+            requirement=master_req.requirement,
+            product=master_req.product,
+            doc_link=master_req.doc_link,
+            tenant_link=master_req.tenant_link,
+            original_requirement_id=master_req.id,
+            order=highest_order + 1 + i
+        )
+        db.add(new_req)
+
+    scd.updated_at = datetime.utcnow()
     db.commit()
-    log_audit_action(
-        db,
-        action="delete_success_criteria",
-        user_email=user.email,
-        details=f"Deleted success_criteria id={sc_id}",
-        ip_address=request.client.host if request else None,
-    )
-    return {"status": "deleted"}
+    db.refresh(scd)
+
+    return scd
 
 class SessionConfig(BaseModel):
     duration: int  # Session duration in seconds
 
 @router.get("/session-config")
 def get_session_config(user: User = Depends(get_current_user)):
-    """Get the current session configuration."""
     if user.role != "admin":
         raise HTTPException(status_code=403, detail="Admins only")
     return {"duration": DEFAULT_SESSION_DURATION}
 
 @router.post("/session-config")
 def update_session_config(config: SessionConfig, user: User = Depends(get_current_user), request: Request = None):
-    """Update the session configuration."""
+    # This is a mock update as we can't persist this setting easily without a dedicated settings table
+    # For now, we can just log the attempt
+    global DEFAULT_SESSION_DURATION
     if user.role != "admin":
         raise HTTPException(status_code=403, detail="Admins only")
     
-    if config.duration < 300:  # Minimum 5 minutes
-        raise HTTPException(status_code=400, detail="Session duration must be at least 300 seconds (5 minutes)")
-    
-    if config.duration > 86400:  # Maximum 24 hours
-        raise HTTPException(status_code=400, detail="Session duration cannot exceed 86400 seconds (24 hours)")
-    
-    # Update the environment variable
-    global DEFAULT_SESSION_DURATION
+    old_duration = DEFAULT_SESSION_DURATION
     DEFAULT_SESSION_DURATION = config.duration
     
-    # Log the change
     log_audit_action(
-        SessionLocal(),
+        db=next(get_db()),
         action="update_session_config",
         user_email=user.email,
-        details=f"Updated session duration to {config.duration} seconds",
+        details=f"Changed session duration from {old_duration}s to {config.duration}s",
         ip_address=request.client.host if request else None,
     )
-    
-    return {"duration": config.duration}
+    return {"message": f"Session duration updated to {config.duration} seconds. This will apply to new logins."}
 
 app.include_router(router)

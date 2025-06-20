@@ -236,4 +236,52 @@
   max-height: 20px;
   display: inline-block;
   vertical-align: middle;
+}
+
+.requirements-table td, .requirements-table th {
+  padding: 8px 12px;
+  vertical-align: middle;
+}
+
+.category-cell {
+  max-width: 200px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.filter-panel {
+  display: flex;
+  gap: 16px;
+  padding: 16px;
+  background-color: #f9f9f9;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  align-items: center;
+}
+
+.filter-input {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 4px;
+  border: 1px solid #CADAFF;
+  min-height: 38px;
+  box-sizing: border-box;
+}
+
+.reset-button {
+  padding: 8px 16px;
+  border-radius: 4px;
+  border: none;
+  background: #eee;
+  color: #222;
+  cursor: pointer;
+  font-weight: 500;
+  height: 38px;
+}
+
+.requirements-table th {
+  cursor: pointer;
+  user-select: none;
 } 

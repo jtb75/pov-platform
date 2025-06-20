@@ -5,6 +5,7 @@ import Login from './Login';
 import Dashboard from './Dashboard';
 import RequirementsPage from './RequirementsPage';
 import SuccessCriteriaPage from './SuccessCriteriaPage';
+import SCDDetailPage from './SCDDetailPage';
 import SystemSettings from './SystemSettings';
 import SystemStatusPage from './SystemStatusPage';
 import AuditLogsPage from './AuditLogsPage';
@@ -26,6 +27,7 @@ const App: React.FC = () => {
         <Route path="/" element={<ProtectedRoute><MainLayout><Dashboard /></MainLayout></ProtectedRoute>} />
         <Route path="/requirements" element={<ProtectedRoute><MainLayout><RequirementsPage /></MainLayout></ProtectedRoute>} />
         <Route path="/success-criteria" element={<ProtectedRoute><MainLayout><SuccessCriteriaPage /></MainLayout></ProtectedRoute>} />
+        <Route path="/success-criteria/:id" element={<ProtectedRoute><MainLayout><SCDDetailPage /></MainLayout></ProtectedRoute>} />
         
         <Route path="/settings/*" element={
           <ProtectedRoute requiredRole="admin">

@@ -1,27 +1,26 @@
-import React, { useEffect, useState } from 'react';
-import {
-  BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend,
-} from 'recharts';
-import { apiRequest } from './utils/api';
+import React, { useState, useEffect, useMemo } from 'react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { Link } from 'react-router-dom';
+import { apiRequest, parseProducts } from './utils/api';
 
-const COLORS = ['#0254EC', '#E8F0FF', '#FFBFD6', '#3C4948', '#CADAFF', '#7E7E7E', '#001142'];
+interface Requirement {
+  category: string;
+  product?: string;
+}
 
-// Dashboard.tsx
-// Displays summary statistics and graphs for requirements, including breakdowns by category/product and link coverage.
 const Dashboard: React.FC = () => {
-  const [requirements, setRequirements] = useState<any[]>([]);
+  const [requirements, setRequirements] = useState<Requirement[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchRequirements = async () => {
-      setLoading(true);
-      setError(null);
       try {
-        const data = await apiRequest("/api/requirements");
+        setLoading(true);
+        const data = await apiRequest('/api/requirements');
         setRequirements(data);
       } catch (e: any) {
-        setError(e.message || 'Unknown error');
+        setError(e.message || 'An error occurred');
       } finally {
         setLoading(false);
       }
@@ -29,96 +28,81 @@ const Dashboard: React.FC = () => {
     fetchRequirements();
   }, []);
 
-  // Helper to parse product string
-  const parseProducts = (product: string | undefined | null): string[] => {
-    if (!product) return [];
-    return product.split(/[,;]/).map(p => p.trim()).filter(Boolean);
+  const { chartData, products } = useMemo(() => {
+    if (requirements.length === 0) {
+      return { chartData: [], products: [] };
+    }
+
+    const productsSet = new Set<string>();
+    const dataMap = new Map<string, any>();
+
+    requirements.forEach(req => {
+      const category = req.category || 'Uncategorized';
+      
+      const productNames = parseProducts(req.product);
+      if (productNames.length === 0) {
+        productNames.push('N/A');
+      }
+      
+      productNames.forEach(pName => productsSet.add(pName));
+
+      if (!dataMap.has(category)) {
+        dataMap.set(category, { name: category });
+      }
+
+      const categoryData = dataMap.get(category);
+      productNames.forEach(pName => {
+        categoryData[pName] = (categoryData[pName] || 0) + 1;
+      });
+    });
+
+    return { 
+      chartData: Array.from(dataMap.values()), 
+      products: Array.from(productsSet).sort()
+    };
+  }, [requirements]);
+
+  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#AF19FF', '#FF1919'];
+
+  const CustomYAxisTick = (props: any) => {
+    const { x, y, payload } = props;
+    return (
+      <g transform={`translate(${x},${y})`}>
+        <Link to="/requirements" state={{ category: payload.value }}>
+          <text x={0} y={0} dy={4} textAnchor="end" fill="#666" fontSize={12}>
+            {payload.value}
+          </text>
+        </Link>
+      </g>
+    );
   };
 
-  // Data for graphs
-  const total = requirements.length;
-  const byCategory: Record<string, number> = {};
-  const byProduct: Record<string, number> = {};
-  let withDoc = 0;
-  let withTenant = 0;
-  requirements.forEach(r => {
-    byCategory[r.category] = (byCategory[r.category] || 0) + 1;
-    parseProducts(r.product).forEach(p => {
-      byProduct[p] = (byProduct[p] || 0) + 1;
-    });
-    if (r.doc_link) withDoc++;
-    if (r.tenant_link) withTenant++;
-  });
-  const categoryData = Object.entries(byCategory).map(([name, value]) => ({ name, value }));
-  const productData = Object.entries(byProduct).map(([name, value]) => ({ name, value }));
-  const docPie = [
-    { name: 'With Doc Link', value: withDoc },
-    { name: 'No Doc Link', value: total - withDoc },
-  ];
-  const tenantPie = [
-    { name: 'With Tenant Link', value: withTenant },
-    { name: 'No Tenant Link', value: total - withTenant },
-  ];
+  if (loading) return <div>Loading dashboard data...</div>;
+  if (error) return <div style={{ color: 'red' }}>Error: {error}</div>;
 
   return (
-    <>
+    <div style={{ padding: '24px', height: 'calc(100vh - 120px)' }}>
       <h1>Dashboard</h1>
-      {loading && <div>Loading requirements...</div>}
-      {error && <div style={{ color: 'red' }}>Error: {error}</div>}
-      {!loading && !error && (
-        <>
-          <div style={{ fontSize: 22, fontWeight: 600, marginBottom: 24 }}>
-            Total Requirements: {total}
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 40 }}>
-            <div style={{ flex: 1, minWidth: 320 }}>
-              <h3>By Category</h3>
-              <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={categoryData} margin={{ top: 16, right: 16, left: 0, bottom: 0 }}>
-                  <XAxis dataKey="name" fontSize={13} />
-                  <YAxis allowDecimals={false} fontSize={13} />
-                  <RechartsTooltip />
-                  <Bar dataKey="value" fill="var(--blue-wizard)" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-            <div style={{ flex: 1, minWidth: 320 }}>
-              <h3>By Product</h3>
-              <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={productData} margin={{ top: 16, right: 16, left: 0, bottom: 0 }}>
-                  <XAxis dataKey="name" fontSize={13} />
-                  <YAxis allowDecimals={false} fontSize={13} />
-                  <RechartsTooltip />
-                  <Bar dataKey="value" fill="var(--deep-gray)" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-            <div style={{ flex: 1, minWidth: 260 }}>
-              <h3>Doc Link Coverage</h3>
-              <ResponsiveContainer width="100%" height={220}>
-                <PieChart>
-                  <Pie data={docPie} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} label>
-                    {docPie.map((entry, idx) => <Cell key={entry.name} fill={COLORS[idx % COLORS.length]} />)}
-                  </Pie>
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div style={{ flex: 1, minWidth: 260 }}>
-              <h3>Tenant Link Coverage</h3>
-              <ResponsiveContainer width="100%" height={220}>
-                <PieChart>
-                  <Pie data={tenantPie} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} label>
-                    {tenantPie.map((entry, idx) => <Cell key={entry.name} fill={COLORS[(idx+2) % COLORS.length]} />)}
-                  </Pie>
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        </>
-      )}
-    </>
+      <ResponsiveContainer width="100%" height="90%">
+        <BarChart
+          layout="vertical"
+          data={chartData}
+          margin={{
+            top: 20, right: 30, left: 100, bottom: 5,
+          }}
+        >
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis type="number" />
+          <YAxis dataKey="name" type="category" width={250} tick={<CustomYAxisTick />} />
+          <Tooltip />
+          <Legend />
+          {products.map((product, index) => (
+            <Bar key={product} dataKey={product} stackId="a" fill={COLORS[index % COLORS.length]} />
+          ))}
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
   );
 };
+
 export default Dashboard; 

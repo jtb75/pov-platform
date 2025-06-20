@@ -49,7 +49,7 @@ const SessionSettingsPage: React.FC = () => {
         body: JSON.stringify({ duration: durationInSeconds }),
       });
 
-      setConfig(data);
+      setConfig({ duration: durationInSeconds }); // Optimistically update the UI
       setSuccess('Session duration updated successfully.');
     } catch (e: any) {
       setError(e.message || 'Failed to update session configuration');

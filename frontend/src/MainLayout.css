@@ -52,10 +52,12 @@
   background-color: var(--deep-gray);
 }
 
-.sidebar nav li.active a {
-  background-color: var(--blue-wizard);
-  padding-left: 12px; /* 15px - 3px border */
-  border-left: 3px solid var(--frosting-pink);
+.sidebar nav a.active {
+  color: var(--primary-color);
+  font-weight: 700;
+  border-left: 3px solid var(--primary-color);
+  background-color: var(--primary-light-color);
+  padding-left: 13px; /* 16px - 3px border */
 }
 
 .submenu-parent .submenu-toggle {
@@ -78,7 +80,7 @@
 .submenu-parent.active > .submenu-toggle {
   padding-left: 12px;
   border-left: 3px solid var(--frosting-pink);
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .arrow {
@@ -196,4 +198,79 @@
 
 .logout-btn:hover {
   background-color: var(--serious-blue);
+}
+
+/* Modal Styles */
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal {
+  background: white;
+  padding: 24px;
+  border-radius: 8px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+  min-width: 400px;
+  max-width: 90vw;
+}
+
+.modal h2 {
+  margin-top: 0;
+  color: var(--text-color-dark);
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: var(--text-color-light);
+}
+
+.form-group input,
+.form-group textarea {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  box-sizing: border-box; /* Important for width */
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.error-message {
+  color: var(--danger-color);
+  margin-bottom: 16px;
+}
+
+.filter-input {
+  width: 100%;
+  padding: 6px;
+  box-sizing: border-box;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.wrap-text {
+  white-space: normal;
+  word-break: break-word;
+  max-width: 300px; /* Adjust as needed */
 } 

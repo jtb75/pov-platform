@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import './Table.css';
 import Tooltip from './Tooltip';
 import Select from 'react-select';
-import { apiRequest } from './utils/api';
+import { apiRequest, parseProducts } from './utils/api';
+import { useLocation } from 'react-router-dom';
 
 // RequirementsPage.tsx
 // Displays all requirements in a table with filtering, add, edit, delete, bulk upload, mass edit/delete, and mass add to Success Criteria.
@@ -20,6 +21,11 @@ interface Requirement {
   created_by: string;
   updated_at?: string;
   updated_by?: string;
+}
+
+interface SortConfig {
+  key: keyof Requirement | null;
+  direction: 'ascending' | 'descending';
 }
 
 const RequirementsPage: React.FC = () => {
@@ -64,35 +70,42 @@ const RequirementsPage: React.FC = () => {
   const [massEditError, setMassEditError] = useState<string | null>(null);
   const [massEditSuccess, setMassEditSuccess] = useState<string | null>(null);
   const [filters, setFilters] = useState({
-    category: '',
+    category: [] as string[],
     requirement: '',
     product: [] as string[],
   });
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: null, direction: 'ascending' });
   const [allProducts, setAllProducts] = useState<string[]>([]);
-  const [showFilters, setShowFilters] = useState(true);
-  const [showMassAdd, setShowMassAdd] = useState(false);
-  const [criteriaList, setCriteriaList] = useState<any[]>([]);
-  const [criteriaLoading, setCriteriaLoading] = useState(false);
-  const [criteriaError, setCriteriaError] = useState<string | null>(null);
-  const [selectedCriteriaId, setSelectedCriteriaId] = useState<number | null>(null);
-  const [massAddLoading, setMassAddLoading] = useState(false);
-  const [massAddError, setMassAddError] = useState<string | null>(null);
-  const [showCreateCriteria, setShowCreateCriteria] = useState(false);
-  const [createCriteriaForm, setCreateCriteriaForm] = useState({ title: '', description: '', shared_with: '' });
-  const [createCriteriaLoading, setCreateCriteriaLoading] = useState(false);
-  const [createCriteriaError, setCreateCriteriaError] = useState<string | null>(null);
+  const [allCategories, setAllCategories] = useState<string[]>([]);
+  const [showFilters, setShowFilters] = useState(false);
+  const [showAddToScdModal, setShowAddToScdModal] = useState(false);
+  const [scdList, setScdList] = useState<any[]>([]);
+  const [selectedScdId, setSelectedScdId] = useState<number | null>(null);
+  const [addToScdLoading, setAddToScdLoading] = useState(false);
+  const [addToScdError, setAddToScdError] = useState<string | null>(null);
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.state && location.state.category) {
+      setFilters(f => ({ ...f, category: [location.state.category] }));
+      setShowFilters(true);
+    }
+  }, [location.state]);
+
+  // Collect all unique category values
+  useEffect(() => {
+    const categoriesSet = new Set<string>();
+    requirements.forEach(r => {
+      if (r.category) {
+        categoriesSet.add(r.category);
+      }
+    });
+    setAllCategories(Array.from(categoriesSet).sort());
+  }, [requirements]);
 
   // For react-select
   const productOptions = allProducts.map(p => ({ value: p, label: p }));
-
-  // Parse product string into array
-  const parseProducts = (product: string | undefined | null): string[] => {
-    if (!product) return [];
-    return product
-      .split(/[,;]/)
-      .map(p => p.trim())
-      .filter(Boolean);
-  };
+  const categoryOptions = allCategories.map(c => ({ value: c, label: c }));
 
   // Collect all unique product values
   useEffect(() => {
@@ -120,15 +133,37 @@ const RequirementsPage: React.FC = () => {
     fetchRequirements();
   }, []);
 
-  // Filtered requirements
-  const filteredRequirements = requirements.filter(r =>
-    (filters.category === '' || r.category.toLowerCase().includes(filters.category.toLowerCase())) &&
-    (filters.requirement === '' || r.requirement.toLowerCase().includes(filters.requirement.toLowerCase())) &&
-    (
-      filters.product.length === 0 ||
-      parseProducts(r.product).some(p => filters.product.includes(p))
-    )
-  );
+  // Filtered and sorted requirements
+  const sortedAndFilteredRequirements = useMemo(() => {
+    let filtered = requirements.filter(r =>
+      (filters.category.length === 0 || filters.category.includes(r.category)) &&
+      (filters.requirement === '' || r.requirement.toLowerCase().includes(filters.requirement.toLowerCase())) &&
+      (
+        filters.product.length === 0 ||
+        parseProducts(r.product).some(p => filters.product.includes(p))
+      )
+    );
+
+    if (sortConfig.key) {
+      filtered.sort((a, b) => {
+        const aValue = a[sortConfig.key!];
+        const bValue = b[sortConfig.key!];
+        
+        if (aValue === undefined || aValue === null) return 1;
+        if (bValue === undefined || bValue === null) return -1;
+        
+        if (aValue < bValue) {
+          return sortConfig.direction === 'ascending' ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return sortConfig.direction === 'ascending' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+
+    return filtered;
+  }, [requirements, filters, sortConfig]);
 
   // Placeholder handlers
   const handleAdd = () => {
@@ -297,7 +332,10 @@ const RequirementsPage: React.FC = () => {
           },
         }),
       });
-      setRequirements(data);
+      // The API returns a count, not the updated list.
+      // Re-fetch the requirements to get the latest data.
+      const updatedRequirements = await apiRequest('/api/requirements');
+      setRequirements(updatedRequirements);
       setMassEditSuccess('Mass edit successful.');
       setTimeout(() => {
         setShowMassEdit(false);
@@ -321,90 +359,69 @@ const RequirementsPage: React.FC = () => {
     setFilters(f => ({ ...f, product: selected ? selected.map((s: any) => s.value) : [] }));
   };
 
+  const handleCategorySelect = (selected: any) => {
+    setFilters(f => ({ ...f, category: selected ? selected.map((s: any) => s.value) : [] }));
+  };
+
   const handleResetFilters = () => {
-    setFilters({ category: '', requirement: '', product: [] });
+    setFilters({ category: [], requirement: '', product: [] });
   };
 
   const handleToggleFilters = () => setShowFilters(f => !f);
 
+  const requestSort = (key: keyof Requirement) => {
+    let direction: 'ascending' | 'descending' = 'ascending';
+    if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const getSortIndicator = (key: keyof Requirement) => {
+    if (sortConfig.key !== key) return null;
+    return sortConfig.direction === 'ascending' ? ' ▲' : ' ▼';
+  };
+
   // Helper to format datetime
   const formatDate = (dt?: string | Date) => dt ? new Date(dt).toLocaleString() : '';
 
-  const handleMassAdd = () => {
-    setShowMassAdd(true);
-    setCriteriaLoading(true);
-    setCriteriaError(null);
-    setSelectedCriteriaId(null);
-    // Fetch user's Success Criteria docs
-    const fetchCriteria = async () => {
-      try {
-        const data = await apiRequest('/api/success-criteria');
-        setCriteriaList(data);
-      } catch (e: any) {
-        setCriteriaError(e.message || 'Unknown error');
-      } finally {
-        setCriteriaLoading(false);
-      }
-    };
-    fetchCriteria();
-  };
-
-  const handleMassAddSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedCriteriaId) return setMassAddError('Please select a Success Criteria document.');
-    setMassAddLoading(true);
-    setMassAddError(null);
+  const handleOpenAddToScdModal = async () => {
+    if (selected.length === 0) return;
+    setShowAddToScdModal(true);
+    setAddToScdError(null);
+    setAddToScdLoading(true);
     try {
-      const data = await apiRequest(`/api/success-criteria/${selectedCriteriaId}`);
-      // Add selected requirements to the end
-      const newReqs = [
-        ...data.requirements.map((r: any) => ({ requirement_id: r.requirement_id, custom_text: r.custom_text, order: r.order })),
-        ...requirements.filter(r => selected.includes(r.id)).map((r, i) => ({ requirement_id: r.id, custom_text: undefined, order: (data.requirements.length || 0) + i })),
-      ];
-      // Update the criteria
-      await apiRequest(`/api/success-criteria/${selectedCriteriaId}`, {
-        method: 'PUT',
-        body: JSON.stringify({
-          title: data.title,
-          description: data.description,
-          shared_with: data.shared_with,
-          requirements: newReqs,
-        }),
-      });
-      setShowMassAdd(false);
-      setSelected([]);
-    } catch (e: any) {
-      setMassAddError(e.message || 'Unknown error');
+      const data = await apiRequest('/api/scd');
+      setScdList(data);
+    } catch (err: any) {
+      setAddToScdError(err.message || "Failed to fetch SCD list.");
     } finally {
-      setMassAddLoading(false);
+      setAddToScdLoading(false);
     }
   };
 
-  const handleCreateCriteriaChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setCreateCriteriaForm({ ...createCriteriaForm, [e.target.name]: e.target.value });
-  };
-
-  const handleCreateCriteriaSubmit = async (e: React.FormEvent) => {
+  const handleAddToScdSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setCreateCriteriaLoading(true);
-    setCreateCriteriaError(null);
+    if (!selectedScdId) {
+      setAddToScdError("Please select a Success Criteria Document.");
+      return;
+    }
+    setAddToScdLoading(true);
+    setAddToScdError(null);
     try {
-      const data = await apiRequest('/api/success-criteria', {
-        method: 'POST',
-        body: JSON.stringify({
-          title: createCriteriaForm.title,
-          description: createCriteriaForm.description,
-          shared_with: createCriteriaForm.shared_with.split(',').map(e => e.trim()).filter(Boolean),
-          requirements: requirements.filter(r => selected.includes(r.id)).map((r, i) => ({ requirement_id: r.id, order: i })),
-        }),
+      // This endpoint doesn't exist yet, we will create it.
+      await apiRequest(`/api/scd/${selectedScdId}/requirements`, {
+        method: 'PUT',
+        body: JSON.stringify({ requirement_ids: selected }),
       });
-      setShowCreateCriteria(false);
-      setShowMassAdd(false);
+      setShowAddToScdModal(false);
       setSelected([]);
-    } catch (e: any) {
-      setCreateCriteriaError(e.message || 'Unknown error');
+      setSelectedScdId(null);
+      // Optionally, show a success message
+    } catch (err: any) {
+      setAddToScdError(err.message || "Failed to add requirements to SCD.");
     } finally {
-      setCreateCriteriaLoading(false);
+      setAddToScdLoading(false);
     }
   };
 
@@ -417,61 +434,62 @@ const RequirementsPage: React.FC = () => {
         <button onClick={handleAdd} className="primary-btn">Add Requirement</button>
         <button onClick={handleBulkUpload} className="primary-btn" style={{ marginLeft: 8 }}>Bulk Upload</button>
         <button onClick={handleMassEdit} className="primary-btn" style={{ marginLeft: 8 }} disabled={selected.length === 0}>Mass Edit</button>
-        <button onClick={handleMassDelete} className="primary-btn" style={{ marginLeft: 8 }} disabled={selected.length === 0 || massDeleteLoading}>
+        <button onClick={handleMassDelete} className="primary-btn danger" style={{ marginLeft: 8 }} disabled={selected.length === 0 || massDeleteLoading}>
           {massDeleteLoading ? 'Deleting...' : 'Mass Delete'}
         </button>
-        <button onClick={handleMassAdd} className="primary-btn" style={{ marginLeft: 8 }} disabled={selected.length === 0}>Mass Add to Success Criteria</button>
+        <button onClick={handleOpenAddToScdModal} className="primary-btn" style={{ marginLeft: 8 }} disabled={selected.length === 0}>Add to SCD</button>
         <button onClick={handleToggleFilters} className="primary-btn" style={{ marginLeft: 8 }}>
-          {showFilters ? 'Hide Filters' : 'Filter'}
+          {showFilters ? 'Hide Filters' : 'Show Filters'}
         </button>
       </div>
+      {showFilters && (
+        <div className="filter-panel">
+          <Select
+            isMulti
+            name="category"
+            options={categoryOptions}
+            value={categoryOptions.filter(opt => filters.category.includes(opt.value))}
+            onChange={handleCategorySelect}
+            placeholder="Filter Category"
+            styles={{
+              container: base => ({...base, flex: 1}),
+              control: base => ({ ...base, minHeight: 38, borderColor: '#CADAFF', borderRadius: 4, boxSizing: 'border-box' }),
+            }}
+          />
+          <input name="requirement" value={filters.requirement} onChange={handleFilterChange} placeholder="Filter Requirement" className="filter-input" style={{flex: 2}} />
+          <Select
+            isMulti
+            name="product"
+            options={productOptions}
+            value={productOptions.filter(option => filters.product.includes(option.value))}
+            onChange={handleProductSelect}
+            placeholder="Filter Product"
+            styles={{
+              container: base => ({...base, flex: 1}),
+              control: base => ({ ...base, minHeight: 38, borderColor: '#CADAFF', borderRadius: 4, boxSizing: 'border-box' }),
+            }}
+          />
+          <button onClick={handleResetFilters} className="reset-button">Reset</button>
+        </div>
+      )}
       <table className="table-unified requirements-table">
         <thead>
           <tr>
-            <th><input type="checkbox" checked={selected.length === requirements.length && requirements.length > 0} onChange={e => setSelected(e.target.checked ? requirements.map(r => r.id) : [])} /></th>
-            <th>Category</th>
-            <th>Requirement</th>
-            <th>Product</th>
+            <th><input type="checkbox" checked={sortedAndFilteredRequirements.length > 0 && selected.length === sortedAndFilteredRequirements.length} onChange={e => setSelected(e.target.checked ? sortedAndFilteredRequirements.map(r => r.id) : [])} /></th>
+            <th onClick={() => requestSort('category')}>Category{getSortIndicator('category')}</th>
+            <th onClick={() => requestSort('requirement')}>Requirement{getSortIndicator('requirement')}</th>
+            <th onClick={() => requestSort('product')}>Product{getSortIndicator('product')}</th>
             <th>Platform Links</th>
             <th>Actions</th>
           </tr>
-          {showFilters && (
-            <tr>
-              <th>
-                <button onClick={handleResetFilters} className="reset-button" style={{ padding: '4px 12px', borderRadius: 4, border: 'none', background: '#eee', color: '#222', cursor: 'pointer', fontWeight: 500 }}>Reset</button>
-              </th>
-              <th><input name="category" value={filters.category} onChange={handleFilterChange} placeholder="Filter" className="filter-input-compact" style={{ padding: 4, borderRadius: 4, border: '1px solid #CADAFF', minHeight: 32, boxSizing: 'border-box' }} /></th>
-              <th><input name="requirement" value={filters.requirement} onChange={handleFilterChange} placeholder="Filter" style={{ width: '100%', padding: 4, borderRadius: 4, border: '1px solid #CADAFF', minHeight: 32, boxSizing: 'border-box' }} /></th>
-              <th>
-                <Select
-                  isMulti
-                  name="product"
-                  options={productOptions}
-                  value={productOptions.filter(opt => filters.product.includes(opt.value))}
-                  onChange={handleProductSelect}
-                  placeholder="Filter"
-                  className="filter-input-compact"
-                  styles={{
-                    control: base => ({ ...base, minHeight: 32, borderColor: '#CADAFF', borderRadius: 4, boxSizing: 'border-box', padding: 0 }),
-                    valueContainer: base => ({ ...base, padding: '0 4px' }),
-                    input: base => ({ ...base, margin: 0, padding: 0 }),
-                    menu: base => ({ ...base, zIndex: 9999 }),
-                    container: base => ({ ...base, width: '150px' })
-                  }}
-                />
-              </th>
-              <th></th>
-              <th></th>
-            </tr>
-          )}
         </thead>
         <tbody>
-          {filteredRequirements.length === 0 && !loading ? (
+          {sortedAndFilteredRequirements.length === 0 && !loading ? (
             <tr><td colSpan={6} style={{ textAlign: "center" }}>No requirements yet.</td></tr>
-          ) : filteredRequirements.map(req => (
+          ) : sortedAndFilteredRequirements.map(req => (
             <tr key={req.id}>
               <td><input type="checkbox" checked={selected.includes(req.id)} onChange={e => setSelected(e.target.checked ? [...selected, req.id] : selected.filter(id => id !== req.id))} /></td>
-              <td>{req.category}</td>
+              <td className="category-cell">{req.category}</td>
               <td>{req.requirement}</td>
               <td>{parseProducts(req.product).join(', ')}</td>
               <td>
@@ -647,57 +665,39 @@ const RequirementsPage: React.FC = () => {
           </div>
         </div>
       )}
-      {/* Mass Add Dialog */}
-      {showMassAdd && (
-        <div style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", background: "rgba(0,0,0,0.3)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
-          <div className="modal" style={{ minWidth: 420 }}>
-            <h2>Add to Success Criteria</h2>
-            {criteriaLoading ? <div>Loading...</div> : criteriaError ? <div style={{ color: 'red' }}>{criteriaError}</div> : (
-              <form onSubmit={handleMassAddSubmit}>
-                <div style={{ marginBottom: 12 }}>
-                  <label>Select Document:<br />
-                    <select value={selectedCriteriaId || ''} onChange={e => setSelectedCriteriaId(Number(e.target.value))} style={{ width: '100%' }} required>
-                      <option value="" disabled>Select...</option>
-                      {criteriaList.map(c => (
-                        <option key={c.id} value={c.id}>{c.title}</option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-                <button type="button" className="primary-btn" style={{ marginBottom: 12 }} onClick={() => setShowCreateCriteria(true)}>Create New</button>
-                {massAddError && <div style={{ color: 'red', marginBottom: 8 }}>{massAddError}</div>}
-                <button type="submit" className="primary-btn" disabled={massAddLoading}>{massAddLoading ? 'Adding...' : 'Add to Selected'}</button>
-                <button type="button" onClick={() => setShowMassAdd(false)} style={{ marginLeft: 8 }}>Cancel</button>
-              </form>
-            )}
-            {/* Create New Criteria Dialog (nested) */}
-            {showCreateCriteria && (
-              <div style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", background: "rgba(0,0,0,0.3)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100 }}>
-                <div className="modal" style={{ minWidth: 400 }}>
-                  <h3>Create Success Criteria</h3>
-                  <form onSubmit={handleCreateCriteriaSubmit}>
-                    <div style={{ marginBottom: 12 }}>
-                      <label>Title:<br />
-                        <input name="title" value={createCriteriaForm.title} onChange={handleCreateCriteriaChange} required style={{ width: '100%' }} />
-                      </label>
-                    </div>
-                    <div style={{ marginBottom: 12 }}>
-                      <label>Description:<br />
-                        <textarea name="description" value={createCriteriaForm.description} onChange={handleCreateCriteriaChange} style={{ width: '100%' }} />
-                      </label>
-                    </div>
-                    <div style={{ marginBottom: 12 }}>
-                      <label>Shared With (comma-separated emails):<br />
-                        <input name="shared_with" value={createCriteriaForm.shared_with} onChange={handleCreateCriteriaChange} style={{ width: '100%' }} />
-                      </label>
-                    </div>
-                    {createCriteriaError && <div style={{ color: 'red', marginBottom: 8 }}>{createCriteriaError}</div>}
-                    <button type="submit" className="primary-btn" disabled={createCriteriaLoading}>{createCriteriaLoading ? 'Creating...' : 'Create'}</button>
-                    <button type="button" onClick={() => setShowCreateCriteria(false)} style={{ marginLeft: 8 }}>Cancel</button>
-                  </form>
-                </div>
+      {/* Add to SCD Dialog */}
+      {showAddToScdModal && (
+        <div className="modal-backdrop">
+          <div className="modal">
+            <h2>Add {selected.length} requirement(s) to...</h2>
+            {addToScdError && <p className="error-message">{addToScdError}</p>}
+            <form onSubmit={handleAddToScdSubmit}>
+              <div className="form-group">
+                <label htmlFor="scd-select">Select Document</label>
+                {scdList.length > 0 ? (
+                  <select
+                    id="scd-select"
+                    value={selectedScdId || ''}
+                    onChange={e => setSelectedScdId(Number(e.target.value))}
+                    required
+                    style={{ width: '100%' }}
+                  >
+                    <option value="" disabled>Select an SCD...</option>
+                    {scdList.map((scd: any) => (
+                      <option key={scd.id} value={scd.id}>{scd.name}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <p>No SCDs found. You can create one from the Success Criteria page.</p>
+                )}
               </div>
-            )}
+              <div className="form-actions">
+                <button type="button" className="secondary-btn" onClick={() => setShowAddToScdModal(false)}>Cancel</button>
+                <button type="submit" className="primary-btn" disabled={addToScdLoading || !selectedScdId}>
+                  {addToScdLoading ? 'Adding...' : 'Add to SCD'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

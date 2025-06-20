@@ -51,13 +51,22 @@ export const getAuthHeaders = (): Record<string, string> => {
 
 export const apiRequest = async (url: string, options: RequestInit = {}) => {
   try {
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-      ...options.headers,
+    const headers: Record<string, string> = {
       ...getAuthHeaders(),
     };
 
-    const response = await fetch(url, { ...options, headers });
+    // Do not set Content-Type for FormData, let the browser handle it
+    if (!(options.body instanceof FormData)) {
+      headers['Content-Type'] = 'application/json';
+    }
+
+    const response = await fetch(url, { 
+      ...options, 
+      headers: {
+        ...headers,
+        ...options.headers,
+      }
+    });
     return handleApiResponse(response);
   } catch (error: any) {
     // Let the error propagate to the component
@@ -89,4 +98,11 @@ export const formatDate = (dateString?: string | null): string => {
     return 'Invalid Date';
   }
   return date.toLocaleString();
+};
+
+export const parseProducts = (productString?: string | null): string[] => {
+  if (!productString) {
+    return [];
+  }
+  return productString.split(/[,;]/).map(p => p.trim()).filter(Boolean);
 }; 

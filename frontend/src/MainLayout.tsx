@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { NavLink, Link, useLocation, useNavigate } from 'react-router-dom';
 import './MainLayout.css';
 
 interface MainLayoutProps {
@@ -73,8 +73,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                     {openSubMenu === link.path && (
                       <ul className="submenu">
                         {link.children.map(child => (
-                          <li key={child.path} className={location.pathname === child.path ? 'active' : ''}>
-                            <Link to={child.path}>{child.label}</Link>
+                          <li key={child.path}>
+                            <NavLink to={child.path}>{child.label}</NavLink>
                           </li>
                         ))}
                       </ul>
@@ -83,8 +83,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 );
               }
               return (
-                <li key={link.path} className={location.pathname === link.path ? 'active' : ''}>
-                  <Link to={link.path!}>{link.label}</Link>
+                <li key={link.path}>
+                  <NavLink to={link.path!}>{link.label}</NavLink>
                 </li>
               );
             })}
