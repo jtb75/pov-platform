@@ -39,6 +39,13 @@ class User(BaseModel):
     picture: str | None = None
     role: str = "normal"
 
+class UserDetails(User):
+    created_at: datetime
+    last_login: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
 # Dependency to get DB session
 def get_db():
     db = SessionLocal()
@@ -98,12 +105,12 @@ def admin_only(user: User = Depends(get_current_user), db: Session = Depends(get
 def public_google_client_id():
     return {"client_id": GOOGLE_CLIENT_ID}
 
-@router.get("/users")
+@router.get("/users", response_model=List[UserDetails])
 def get_all_users(user: User = Depends(get_current_user), db: Session = Depends(get_db), request: Request = None):
     if user.role != "admin":
         raise HTTPException(status_code=403, detail="Admins only")
     users = db.query(DBUser).all()
-    return [User(email=u.email, name=u.name, picture=u.picture, role=u.role) for u in users]
+    return users
 
 @router.post("/users/promote")
 def promote_user(
@@ -150,10 +157,14 @@ async def api_login(request: Request, db: Session = Depends(get_db)):
                 name=idinfo.get("name"),
                 picture=idinfo.get("picture"),
                 role="normal",
+                created_at=datetime.utcnow(),
             )
             db.add(user)
             db.commit()
             db.refresh(user)
+        
+        user.last_login = datetime.utcnow()
+        db.commit()
         
         # Create a JWT token with expiration based on session duration
         exp = datetime.utcnow() + timedelta(seconds=DEFAULT_SESSION_DURATION)

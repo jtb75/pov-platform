@@ -11,7 +11,7 @@ interface AuditLog {
   action: string;
   details: string;
   ip_address: string;
-  created_at: string;
+  timestamp: string;
 }
 
 const MAX_LOGS = 5000;
@@ -145,7 +145,7 @@ const AuditLogsPage: React.FC = () => {
             ) : (
               pagedLogs.map((log, idx) => (
                 <tr key={log.id} style={{ transition: 'background 0.2s' }}>
-                  <td style={{ padding: '10px 16px', borderBottom: '1px solid var(--light-blue-02)', fontFamily: 'Inter, Arial, sans-serif', fontSize: 15, color: 'var(--deep-gray)', whiteSpace: 'nowrap' }}>{formatDate(log.created_at)}</td>
+                  <td style={{ padding: '10px 16px', borderBottom: '1px solid var(--light-blue-02)', fontFamily: 'Inter, Arial, sans-serif', fontSize: 15, color: 'var(--deep-gray)', whiteSpace: 'nowrap' }}>{formatDate(log.timestamp)}</td>
                   <td style={{ padding: '10px 16px', borderBottom: '1px solid var(--light-blue-02)', fontFamily: 'Inter, Arial, sans-serif', fontSize: 15, color: 'var(--deep-gray)' }}>{log.user_email}</td>
                   <td style={{ padding: '10px 16px', borderBottom: '1px solid var(--light-blue-02)', color: 'var(--deep-gray)' }}>{log.action}</td>
                   <td style={{ padding: '10px 16px', borderBottom: '1px solid var(--light-blue-02)', color: 'var(--deep-gray)', maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={log.details}>{log.details}</td>

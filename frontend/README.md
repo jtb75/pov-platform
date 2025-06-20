@@ -2,29 +2,6 @@
 
 This directory contains the React-based frontend for the PoV Platform.
 
-## Getting Started
-
-To run the frontend locally for development, follow these steps:
-
-1.  **Port-Forward the Backend**: In a separate terminal, run the following command to forward the backend service from your Kubernetes cluster to your local machine:
-
-    ```bash
-    kubectl -n pov-platform port-forward svc/pov-backend 8080:8000
-    ```
-
-2.  **Install Dependencies**: Navigate to this directory and install the necessary Node.js packages:
-
-    ```bash
-    cd frontend
-    npm install
-    ```
-
-3.  **Start the Development Server**: Run the following command to start the local server, which will be accessible at `http://localhost:3000`:
-
-    ```bash
-    npm start
-    ```
-
 ## Component Architecture
 
 The frontend is structured into global components that define the overall layout and page-specific components that render the main content.

@@ -3,6 +3,7 @@ from sqlalchemy import create_engine, Column, Integer, String, DateTime, Foreign
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from dotenv import load_dotenv
+from datetime import datetime
 
 load_dotenv()
 
@@ -19,6 +20,8 @@ class User(Base):
     name = Column(String, nullable=True)
     picture = Column(String, nullable=True)
     role = Column(String, default="normal", nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    last_login = Column(DateTime, nullable=True)
 
 class AuditLog(Base):
     __tablename__ = "audit_logs"
@@ -64,7 +67,6 @@ class SuccessCriteriaRequirement(Base):
     requirement = relationship("Requirement")
 
 def log_audit_action(db, action, user_email=None, details=None, ip_address=None):
-    from datetime import datetime
     log = AuditLog(
         timestamp=datetime.utcnow().isoformat(),
         user_email=user_email,
