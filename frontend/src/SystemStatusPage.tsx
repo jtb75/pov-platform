@@ -2,10 +2,25 @@
 // Displays system health and status information for the platform.
 import React, { useEffect, useState } from 'react';
 import './Table.css';
+import { apiRequest } from './utils/api';
 
 interface HealthStatus {
   status: string;
-  [key: string]: any;
+  version: string;
+  uptime: string;
+  uptime_seconds: number;
+  db_connection: boolean;
+  last_check: string;
+  db?: {
+    status: string;
+    version: string;
+  };
+  python_version?: string;
+  platform?: string;
+  memory_mb?: number;
+  total_memory_mb?: number;
+  build_time?: string;
+  service?: string;
 }
 
 const SystemStatusPage: React.FC = () => {
@@ -18,8 +33,8 @@ const SystemStatusPage: React.FC = () => {
     setLoading(true);
     setError(null);
     Promise.all([
-      fetch('/api/health').then(r => r.json()).catch(() => null),
-      fetch('/health.json').then(r => r.json()).catch(() => null),
+      apiRequest('/api/health').catch(() => null),
+      fetch('/health.json').then(r => r.json()).catch(() => null), // Keep direct fetch for frontend health check
     ])
       .then(([backendRes, frontendRes]) => {
         setBackend(backendRes);
@@ -33,9 +48,9 @@ const SystemStatusPage: React.FC = () => {
   if (error) return <div style={{ color: 'red' }}>Error: {error}</div>;
 
   return (
-    <div>
+    <>
       <h2>System Status</h2>
-      <table className="table-unified">
+      <table className="table-unified requirements-table">
         <thead>
           <tr>
             <th>Service</th>
@@ -50,7 +65,7 @@ const SystemStatusPage: React.FC = () => {
             <td>
               {backend && (
                 <div>
-                  DB: {backend.db}<br />
+                  DB: {backend.db?.status}<br />
                   Uptime: {backend.uptime_seconds}s<br />
                   Python: {backend.python_version?.split(' ')[0]}<br />
                   Platform: {backend.platform}<br />
@@ -73,7 +88,7 @@ const SystemStatusPage: React.FC = () => {
           </tr>
         </tbody>
       </table>
-    </div>
+    </>
   );
 };
 

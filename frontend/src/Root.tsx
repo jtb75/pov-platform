@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { GoogleOAuthProvider } from '@react-oauth/google';
-import { BrowserRouter as Router } from 'react-router-dom';
 import App from './App';
 
 // Root.tsx
-// Top-level component that loads the Google OAuth client ID and wraps the app in the OAuth provider and router.
+// Top-level component that loads the Google OAuth client ID and wraps the app in the OAuth provider.
 
 const Root: React.FC = () => {
   const [clientId, setClientId] = useState<string | null>(null);
@@ -19,9 +18,7 @@ const Root: React.FC = () => {
 
   return (
     <GoogleOAuthProvider clientId={clientId}>
-      <Router>
-        <App />
-      </Router>
+      <App />
     </GoogleOAuthProvider>
   );
 };

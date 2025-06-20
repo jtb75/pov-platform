@@ -4,7 +4,11 @@ import React from 'react';
 import { GoogleLogin } from '@react-oauth/google';
 import { useNavigate } from 'react-router-dom';
 
-const Login: React.FC = () => {
+interface LoginProps {
+  expired?: boolean;
+}
+
+const Login: React.FC<LoginProps> = ({ expired }) => {
   const navigate = useNavigate();
 
   const handleSuccess = (credentialResponse: any) => {
@@ -39,7 +43,14 @@ const Login: React.FC = () => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '5rem' }}>
-      <h1 style={{ marginBottom: '2rem' }}>POV Platform</h1>
+      {expired ? (
+        <>
+          <h1 style={{ marginBottom: '2rem', color: '#e74c3c' }}>Session Expired</h1>
+          <p style={{ marginBottom: '2rem', fontSize: 18 }}>Your session has expired. Please log in again to continue.</p>
+        </>
+      ) : (
+        <h1 style={{ marginBottom: '2rem' }}>POV Platform</h1>
+      )}
       <GoogleLogin
         onSuccess={handleSuccess}
         onError={handleError}
@@ -48,22 +59,6 @@ const Login: React.FC = () => {
         shape="rectangular"
         width="300"
       />
-    </div>
-  );
-};
-
-export const SessionExpired: React.FC = () => {
-  const navigate = useNavigate();
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '5rem' }}>
-      <h1 style={{ marginBottom: '2rem', color: '#e74c3c' }}>Session Expired</h1>
-      <p style={{ marginBottom: '2rem', fontSize: 18 }}>Your session has expired. Please log in again to continue.</p>
-      <button
-        onClick={() => navigate('/login')}
-        style={{ padding: '0.75rem 2rem', borderRadius: 4, border: 'none', background: '#0254EC', color: '#fff', fontSize: 18, cursor: 'pointer' }}
-      >
-        Go to Login
-      </button>
     </div>
   );
 };

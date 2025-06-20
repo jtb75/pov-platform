@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { apiRequest } from './utils/api';
 import './Table.css';
 
 // AuditLogsPage.tsx
@@ -6,11 +7,11 @@ import './Table.css';
 
 interface AuditLog {
   id: number;
-  timestamp: string;
   user_email: string;
   action: string;
   details: string;
   ip_address: string;
+  created_at: string;
 }
 
 const MAX_LOGS = 5000;
@@ -54,24 +55,21 @@ const AuditLogsPage: React.FC = () => {
     }
     setLoading(true);
     setError(null);
-    fetch(`/api/audit-logs?${buildQuery()}`, {
-      headers: { Authorization: `Bearer ${currentUser.token}` },
-    })
-      .then(res => {
-        if (res.status === 401) {
-          throw new Error('Unauthorized. Please log in again.');
-        }
-        if (!res.ok) throw new Error('Failed to fetch audit logs');
-        return res.json();
-      })
-      .then(data => {
+    const fetchLogs = async () => {
+      try {
+        const data = await apiRequest(`/api/audit-logs?${buildQuery()}`, {
+          headers: { Authorization: `Bearer ${currentUser.token}` },
+        });
         setLogs(data);
         setTotal(data.length);
-      })
-      .catch(e => setError(e.message))
-      .finally(() => setLoading(false));
-    // eslint-disable-next-line
-  }, [filters.user_email, filters.action, filters.dateFrom, filters.dateTo]);
+      } catch (e: any) {
+        setError(e.message || 'Failed to fetch audit logs');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchLogs();
+  }, [filters.user_email, filters.action, filters.dateFrom, filters.dateTo, currentUser.token]);
 
   // Filtering (client-side only for details and ip_address)
   const filteredLogs = logs.filter(log => {
@@ -103,10 +101,10 @@ const AuditLogsPage: React.FC = () => {
   if (error) return <div style={{ color: 'red' }}>{error}</div>;
 
   return (
-    <div>
+    <>
       <h2>Audit Logs</h2>
       <div style={{ overflowX: 'auto' }}>
-        <table className="table-unified">
+        <table className="table-unified requirements-table">
           <thead>
             <tr>
               <th>Timestamp</th>
@@ -147,7 +145,7 @@ const AuditLogsPage: React.FC = () => {
             ) : (
               pagedLogs.map((log, idx) => (
                 <tr key={log.id} style={{ transition: 'background 0.2s' }}>
-                  <td style={{ padding: '10px 16px', borderBottom: '1px solid #CADAFF', fontFamily: 'Inter, Arial, sans-serif', fontSize: 15, color: '#3C4948', whiteSpace: 'nowrap' }}>{new Date(log.timestamp).toLocaleString()}</td>
+                  <td style={{ padding: '10px 16px', borderBottom: '1px solid #CADAFF', fontFamily: 'Inter, Arial, sans-serif', fontSize: 15, color: '#3C4948', whiteSpace: 'nowrap' }}>{new Date(log.created_at).toLocaleString()}</td>
                   <td style={{ padding: '10px 16px', borderBottom: '1px solid #CADAFF', fontFamily: 'Inter, Arial, sans-serif', fontSize: 15, color: '#3C4948' }}>{log.user_email}</td>
                   <td style={{ padding: '10px 16px', borderBottom: '1px solid #CADAFF', color: '#3C4948' }}>{log.action}</td>
                   <td style={{ padding: '10px 16px', borderBottom: '1px solid #CADAFF', color: '#3C4948', maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={log.details}>{log.details}</td>
@@ -165,7 +163,7 @@ const AuditLogsPage: React.FC = () => {
         <button onClick={() => setPage(p => Math.min(pageCount, p + 1))} disabled={page === pageCount} style={{ padding: '6px 14px', borderRadius: 4, border: 'none', background: page === pageCount ? '#eee' : '#0254EC', color: page === pageCount ? '#888' : '#fff', cursor: page === pageCount ? 'not-allowed' : 'pointer', fontWeight: 500 }}>Next</button>
       </div>
       <div style={{ marginTop: 8, color: '#888', fontSize: 14 }}>Showing {filteredLogs.length} of {logs.length} logs (max {MAX_LOGS})</div>
-    </div>
+    </>
   );
 };
 

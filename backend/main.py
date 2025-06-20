@@ -14,13 +14,16 @@ import platform
 import psutil
 import requests
 import csv
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Optional
+import jwt
 
 load_dotenv()
 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 DB_MANAGER_URL = os.getenv("DB_MANAGER_URL", "http://db-manager:8000/db-health")
+JWT_SECRET = os.getenv("JWT_SECRET", "your-secret-key")  # In production, use a secure secret
+DEFAULT_SESSION_DURATION = int(os.getenv("DEFAULT_SESSION_DURATION", "3600"))  # 1 hour in seconds
 
 app = FastAPI()
 router = APIRouter(prefix="/api")
@@ -51,27 +54,30 @@ def get_current_user(
 ) -> User:
     token = credentials.credentials
     try:
-        idinfo = id_token.verify_oauth2_token(token, grequests.Request(), GOOGLE_CLIENT_ID)
-        email = idinfo["email"]
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        email = payload.get("sub")
+        if email is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid authentication credentials. No email in token.",
+            )
+
         user = db.query(DBUser).filter(DBUser.email == email).first()
         if not user:
-            user = DBUser(
-                email=email,
-                name=idinfo.get("name"),
-                picture=idinfo.get("picture"),
-                role="normal",
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=f"User {email} not found",
             )
-            db.add(user)
-            db.commit()
-            db.refresh(user)
         return User(email=user.email, name=user.name, picture=user.picture, role=user.role)
-    except Exception as e:
-        import traceback
-        print("AUTH ERROR:", e)
-        traceback.print_exc()
+    except jwt.ExpiredSignatureError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication credentials",
+            detail="Token has expired",
+        ) from None
+    except jwt.PyJWTError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Invalid authentication credentials: {e}",
         ) from e
 
 @router.get("/")
@@ -148,6 +154,20 @@ async def api_login(request: Request, db: Session = Depends(get_db)):
             db.add(user)
             db.commit()
             db.refresh(user)
+        
+        # Create a JWT token with expiration based on session duration
+        exp = datetime.utcnow() + timedelta(seconds=DEFAULT_SESSION_DURATION)
+        token = jwt.encode(
+            {
+                "sub": user.email,
+                "exp": exp,
+                "iat": datetime.utcnow(),
+                "role": user.role
+            },
+            JWT_SECRET,
+            algorithm="HS256"
+        )
+        
         log_audit_action(
             db,
             action="login",
@@ -160,7 +180,8 @@ async def api_login(request: Request, db: Session = Depends(get_db)):
             "name": user.name,
             "picture": user.picture,
             "role": user.role,
-            "token": id_token_str,
+            "token": token,
+            "expires_at": exp.isoformat(),
         }
     except Exception as e:
         print("ERROR: Exception during token verification", e)
@@ -639,5 +660,42 @@ def delete_success_criteria(sc_id: int, user: User = Depends(get_current_user), 
         ip_address=request.client.host if request else None,
     )
     return {"status": "deleted"}
+
+class SessionConfig(BaseModel):
+    duration: int  # Session duration in seconds
+
+@router.get("/session-config")
+def get_session_config(user: User = Depends(get_current_user)):
+    """Get the current session configuration."""
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admins only")
+    return {"duration": DEFAULT_SESSION_DURATION}
+
+@router.post("/session-config")
+def update_session_config(config: SessionConfig, user: User = Depends(get_current_user), request: Request = None):
+    """Update the session configuration."""
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admins only")
+    
+    if config.duration < 300:  # Minimum 5 minutes
+        raise HTTPException(status_code=400, detail="Session duration must be at least 300 seconds (5 minutes)")
+    
+    if config.duration > 86400:  # Maximum 24 hours
+        raise HTTPException(status_code=400, detail="Session duration cannot exceed 86400 seconds (24 hours)")
+    
+    # Update the environment variable
+    global DEFAULT_SESSION_DURATION
+    DEFAULT_SESSION_DURATION = config.duration
+    
+    # Log the change
+    log_audit_action(
+        SessionLocal(),
+        action="update_session_config",
+        user_email=user.email,
+        details=f"Updated session duration to {config.duration} seconds",
+        ip_address=request.client.host if request else None,
+    )
+    
+    return {"duration": config.duration}
 
 app.include_router(router)

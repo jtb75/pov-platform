@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import './Table.css';
 import Tooltip from './Tooltip';
 import Select from 'react-select';
-import SuccessCriteriaPage from "./SuccessCriteriaPage";
+import { apiRequest } from './utils/api';
 
 // RequirementsPage.tsx
 // Displays all requirements in a table with filtering, add, edit, delete, bulk upload, mass edit/delete, and mass add to Success Criteria.
@@ -40,7 +40,6 @@ const RequirementsPage: React.FC = () => {
   });
   const [addLoading, setAddLoading] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
-  const [metaPopup, setMetaPopup] = useState<{ anchor: HTMLElement | null, req: Requirement | null }>({ anchor: null, req: null });
   const [deleteLoadingId, setDeleteLoadingId] = useState<number | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({
@@ -110,15 +109,7 @@ const RequirementsPage: React.FC = () => {
       setLoading(true);
       setError(null);
       try {
-        const user = localStorage.getItem('user');
-        const token = user ? JSON.parse(user).token : null;
-        let headers: HeadersInit = {};
-        if (token) headers["Authorization"] = `Bearer ${token}`;
-        const res = await fetch("/api/requirements", {
-          headers,
-        });
-        if (!res.ok) throw new Error(`Failed to fetch requirements: ${res.status}`);
-        const data = await res.json();
+        const data = await apiRequest("/api/requirements");
         setRequirements(data);
       } catch (e: any) {
         setError(e.message || 'Unknown error');
@@ -161,15 +152,7 @@ const RequirementsPage: React.FC = () => {
     setDeleteLoadingId(id);
     setDeleteError(null);
     try {
-      const user = localStorage.getItem('user');
-      const token = user ? JSON.parse(user).token : null;
-      let headers: HeadersInit = {};
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-      const res = await fetch(`/api/requirements/${id}`, {
-        method: 'DELETE',
-        headers,
-      });
-      if (!res.ok) throw new Error(`Failed to delete requirement: ${res.status}`);
+      await apiRequest(`/api/requirements/${id}`, { method: 'DELETE' });
       setRequirements(reqs => reqs.filter(r => r.id !== id));
     } catch (e: any) {
       setDeleteError(e.message || 'Unknown error');
@@ -183,16 +166,11 @@ const RequirementsPage: React.FC = () => {
     setMassDeleteLoading(true);
     setMassDeleteError(null);
     try {
-      const user = localStorage.getItem('user');
-      const token = user ? JSON.parse(user).token : null;
-      let headers: HeadersInit = { 'Content-Type': 'application/json' };
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-      const res = await fetch('/api/requirements/mass-delete', {
+      await apiRequest('/api/requirements/mass-delete', {
         method: 'POST',
-        headers,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(selected),
       });
-      if (!res.ok) throw new Error(`Failed to mass delete: ${res.status}`);
       setRequirements(reqs => reqs.filter(r => !selected.includes(r.id)));
       setSelected([]);
     } catch (e: any) {
@@ -220,18 +198,11 @@ const RequirementsPage: React.FC = () => {
     setAddLoading(true);
     setAddError(null);
     try {
-      const user = localStorage.getItem('user');
-      const token = user ? JSON.parse(user).token : null;
-      let headers: HeadersInit = { 'Content-Type': 'application/json' };
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-      const res = await fetch('/api/requirements', {
+      const data = await apiRequest('/api/requirements', {
         method: 'POST',
-        headers,
         body: JSON.stringify(addForm),
       });
-      if (!res.ok) throw new Error(`Failed to add requirement: ${res.status}`);
-      const newReq = await res.json();
-      setRequirements(reqs => [...reqs, newReq]);
+      setRequirements(reqs => [...reqs, data]);
       setShowAddEdit(false);
       setAddForm({ category: '', requirement: '', product: '', doc_link: '', tenant_link: '' });
     } catch (e: any) {
@@ -250,13 +221,8 @@ const RequirementsPage: React.FC = () => {
     setEditLoading(true);
     setEditError(null);
     try {
-      const user = localStorage.getItem('user');
-      const token = user ? JSON.parse(user).token : null;
-      let headers: HeadersInit = { 'Content-Type': 'application/json' };
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-      const res = await fetch(`/api/requirements/${editForm.id}`, {
+      const data = await apiRequest(`/api/requirements/${editForm.id}`, {
         method: 'PUT',
-        headers,
         body: JSON.stringify({
           category: editForm.category,
           requirement: editForm.requirement,
@@ -265,9 +231,7 @@ const RequirementsPage: React.FC = () => {
           tenant_link: editForm.tenant_link,
         }),
       });
-      if (!res.ok) throw new Error(`Failed to update requirement: ${res.status}`);
-      const updated = await res.json();
-      setRequirements(reqs => reqs.map(r => r.id === updated.id ? updated : r));
+      setRequirements(reqs => reqs.map(r => r.id === data.id ? data : r));
       setShowAddEdit(false);
       setEditing(null);
     } catch (e: any) {
@@ -285,39 +249,27 @@ const RequirementsPage: React.FC = () => {
 
   const handleBulkUploadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!bulkFile) return setBulkError('Please select a CSV file.');
+    if (!bulkFile) return;
     setBulkLoading(true);
     setBulkError(null);
     setBulkSuccess(null);
     try {
-      const user = localStorage.getItem('user');
-      const token = user ? JSON.parse(user).token : null;
       const formData = new FormData();
       formData.append('file', bulkFile);
-      let headers: HeadersInit = {};
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-      const res = await fetch('/api/requirements/bulk-upload', {
+      const data = await apiRequest('/api/requirements/bulk-upload', {
         method: 'POST',
-        headers,
         body: formData,
       });
-      if (!res.ok) throw new Error(`Failed to upload: ${res.status}`);
-      const data = await res.json();
       setBulkSuccess(`Uploaded ${data.count} requirements.`);
       setBulkFile(null);
       // Refresh requirements list
-      const reqRes = await fetch('/api/requirements', { headers });
-      if (reqRes.ok) {
-        const reqData = await reqRes.json();
-        setRequirements(reqData);
-      }
+      const reqData = await apiRequest('/api/requirements');
+      setRequirements(reqData);
       // Auto-close dialog after short delay
       setTimeout(() => {
         setShowBulkUpload(false);
-        setBulkFile(null);
-        setBulkError(null);
         setBulkSuccess(null);
-      }, 1000);
+      }, 2000);
     } catch (e: any) {
       setBulkError(e.message || 'Unknown error');
     } finally {
@@ -335,30 +287,18 @@ const RequirementsPage: React.FC = () => {
     setMassEditError(null);
     setMassEditSuccess(null);
     try {
-      const user = localStorage.getItem('user');
-      const token = user ? JSON.parse(user).token : null;
-      let headers: HeadersInit = { 'Content-Type': 'application/json' };
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-      // Only include fields that are non-empty
-      const updates: any = {};
-      if (massEditForm.category.trim() !== "") updates.category = massEditForm.category;
-      if (massEditForm.product.trim() !== "") updates.product = massEditForm.product;
-      const res = await fetch('/api/requirements/mass-edit', {
+      const data = await apiRequest('/api/requirements/mass-edit', {
         method: 'POST',
-        headers,
         body: JSON.stringify({
           ids: selected,
-          updates,
+          updates: {
+            category: massEditForm.category,
+            product: massEditForm.product,
+          },
         }),
       });
-      if (!res.ok) throw new Error(`Failed to mass edit: ${res.status}`);
+      setRequirements(data);
       setMassEditSuccess('Mass edit successful.');
-      // Refresh requirements list
-      const reqRes = await fetch('/api/requirements', { headers });
-      if (reqRes.ok) {
-        const reqData = await reqRes.json();
-        setRequirements(reqData);
-      }
       setTimeout(() => {
         setShowMassEdit(false);
         setMassEditForm({ category: '', product: '' });
@@ -398,13 +338,7 @@ const RequirementsPage: React.FC = () => {
     // Fetch user's Success Criteria docs
     const fetchCriteria = async () => {
       try {
-        const user = localStorage.getItem('user');
-        const token = user ? JSON.parse(user).token : null;
-        let headers: HeadersInit = {};
-        if (token) headers["Authorization"] = `Bearer ${token}`;
-        const res = await fetch('/api/success-criteria', { headers });
-        if (!res.ok) throw new Error(`Failed to fetch: ${res.status}`);
-        const data = await res.json();
+        const data = await apiRequest('/api/success-criteria');
         setCriteriaList(data);
       } catch (e: any) {
         setCriteriaError(e.message || 'Unknown error');
@@ -421,31 +355,22 @@ const RequirementsPage: React.FC = () => {
     setMassAddLoading(true);
     setMassAddError(null);
     try {
-      const user = localStorage.getItem('user');
-      const token = user ? JSON.parse(user).token : null;
-      let headers: HeadersInit = { 'Content-Type': 'application/json' };
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-      // Fetch the selected criteria to get its requirements
-      const res = await fetch(`/api/success-criteria/${selectedCriteriaId}`, { headers });
-      if (!res.ok) throw new Error(`Failed to fetch criteria: ${res.status}`);
-      const criteria = await res.json();
+      const data = await apiRequest(`/api/success-criteria/${selectedCriteriaId}`);
       // Add selected requirements to the end
       const newReqs = [
-        ...criteria.requirements.map((r: any) => ({ requirement_id: r.requirement_id, custom_text: r.custom_text, order: r.order })),
-        ...requirements.filter(r => selected.includes(r.id)).map((r, i) => ({ requirement_id: r.id, custom_text: undefined, order: (criteria.requirements.length || 0) + i })),
+        ...data.requirements.map((r: any) => ({ requirement_id: r.requirement_id, custom_text: r.custom_text, order: r.order })),
+        ...requirements.filter(r => selected.includes(r.id)).map((r, i) => ({ requirement_id: r.id, custom_text: undefined, order: (data.requirements.length || 0) + i })),
       ];
       // Update the criteria
-      const putRes = await fetch(`/api/success-criteria/${selectedCriteriaId}`, {
+      await apiRequest(`/api/success-criteria/${selectedCriteriaId}`, {
         method: 'PUT',
-        headers,
         body: JSON.stringify({
-          title: criteria.title,
-          description: criteria.description,
-          shared_with: criteria.shared_with,
+          title: data.title,
+          description: data.description,
+          shared_with: data.shared_with,
           requirements: newReqs,
         }),
       });
-      if (!putRes.ok) throw new Error(`Failed to update: ${putRes.status}`);
       setShowMassAdd(false);
       setSelected([]);
     } catch (e: any) {
@@ -464,13 +389,8 @@ const RequirementsPage: React.FC = () => {
     setCreateCriteriaLoading(true);
     setCreateCriteriaError(null);
     try {
-      const user = localStorage.getItem('user');
-      const token = user ? JSON.parse(user).token : null;
-      let headers: HeadersInit = { 'Content-Type': 'application/json' };
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-      const res = await fetch('/api/success-criteria', {
+      const data = await apiRequest('/api/success-criteria', {
         method: 'POST',
-        headers,
         body: JSON.stringify({
           title: createCriteriaForm.title,
           description: createCriteriaForm.description,
@@ -478,7 +398,6 @@ const RequirementsPage: React.FC = () => {
           requirements: requirements.filter(r => selected.includes(r.id)).map((r, i) => ({ requirement_id: r.id, order: i })),
         }),
       });
-      if (!res.ok) throw new Error(`Failed to create: ${res.status}`);
       setShowCreateCriteria(false);
       setShowMassAdd(false);
       setSelected([]);
@@ -514,15 +433,14 @@ const RequirementsPage: React.FC = () => {
             <th>Requirement</th>
             <th>Product</th>
             <th>Platform Links</th>
-            <th>Meta</th>
             <th>Actions</th>
           </tr>
           {showFilters && (
             <tr>
               <th>
-                <button onClick={handleResetFilters} style={{ padding: '4px 12px', borderRadius: 4, border: 'none', background: '#eee', color: '#222', cursor: 'pointer', fontWeight: 500 }}>Reset</button>
+                <button onClick={handleResetFilters} className="reset-button" style={{ padding: '4px 12px', borderRadius: 4, border: 'none', background: '#eee', color: '#222', cursor: 'pointer', fontWeight: 500 }}>Reset</button>
               </th>
-              <th><input name="category" value={filters.category} onChange={handleFilterChange} placeholder="Filter" style={{ width: '100%', padding: 4, borderRadius: 4, border: '1px solid #CADAFF', minHeight: 32, boxSizing: 'border-box' }} /></th>
+              <th><input name="category" value={filters.category} onChange={handleFilterChange} placeholder="Filter" className="filter-input-compact" style={{ padding: 4, borderRadius: 4, border: '1px solid #CADAFF', minHeight: 32, boxSizing: 'border-box' }} /></th>
               <th><input name="requirement" value={filters.requirement} onChange={handleFilterChange} placeholder="Filter" style={{ width: '100%', padding: 4, borderRadius: 4, border: '1px solid #CADAFF', minHeight: 32, boxSizing: 'border-box' }} /></th>
               <th>
                 <Select
@@ -532,15 +450,16 @@ const RequirementsPage: React.FC = () => {
                   value={productOptions.filter(opt => filters.product.includes(opt.value))}
                   onChange={handleProductSelect}
                   placeholder="Filter"
+                  className="filter-input-compact"
                   styles={{
                     control: base => ({ ...base, minHeight: 32, borderColor: '#CADAFF', borderRadius: 4, boxSizing: 'border-box', padding: 0 }),
                     valueContainer: base => ({ ...base, padding: '0 4px' }),
                     input: base => ({ ...base, margin: 0, padding: 0 }),
                     menu: base => ({ ...base, zIndex: 9999 }),
+                    container: base => ({ ...base, width: '150px' })
                   }}
                 />
               </th>
-              <th></th>
               <th></th>
               <th></th>
             </tr>
@@ -548,7 +467,7 @@ const RequirementsPage: React.FC = () => {
         </thead>
         <tbody>
           {filteredRequirements.length === 0 && !loading ? (
-            <tr><td colSpan={7} style={{ textAlign: "center" }}>No requirements yet.</td></tr>
+            <tr><td colSpan={6} style={{ textAlign: "center" }}>No requirements yet.</td></tr>
           ) : filteredRequirements.map(req => (
             <tr key={req.id}>
               <td><input type="checkbox" checked={selected.includes(req.id)} onChange={e => setSelected(e.target.checked ? [...selected, req.id] : selected.filter(id => id !== req.id))} /></td>
@@ -583,10 +502,7 @@ const RequirementsPage: React.FC = () => {
                 )}
               </td>
               <td>
-                <a href="#" onClick={e => { e.preventDefault(); setMetaPopup({ anchor: e.currentTarget, req }); }}>Meta</a>
-              </td>
-              <td>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
                   <Tooltip content="Edit">
                     <button className="icon-btn" onClick={() => handleEdit(req)} aria-label="Edit">
                       <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -613,37 +529,6 @@ const RequirementsPage: React.FC = () => {
           ))}
         </tbody>
       </table>
-      {/* Meta Popup */}
-      {metaPopup.req && (
-        <div
-          style={{
-            position: 'fixed',
-            top: (metaPopup.anchor?.getBoundingClientRect().bottom || 100) + window.scrollY + 8,
-            left: (metaPopup.anchor?.getBoundingClientRect().left || 100) + window.scrollX,
-            background: '#fff',
-            border: '1px solid #ccc',
-            borderRadius: 6,
-            boxShadow: '0 2px 12px rgba(0,0,0,0.15)',
-            padding: 16,
-            zIndex: 1000,
-            minWidth: 260,
-          }}
-        >
-          <div style={{ fontWeight: 600, marginBottom: 8 }}>Meta Data</div>
-          <div><b>Created By:</b> {metaPopup.req.created_by}</div>
-          <div><b>Created At:</b> {formatDate(metaPopup.req.created_at)}</div>
-          <div><b>Updated By:</b> {metaPopup.req.updated_by || '-'}</div>
-          <div><b>Updated At:</b> {formatDate(metaPopup.req.updated_at) || '-'}</div>
-          <button style={{ marginTop: 10 }} onClick={() => setMetaPopup({ anchor: null, req: null })}>Close</button>
-        </div>
-      )}
-      {/* Click outside to close meta popup */}
-      {metaPopup.req && (
-        <div
-          style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 999 }}
-          onClick={() => setMetaPopup({ anchor: null, req: null })}
-        />
-      )}
       {/* Add/Edit Dialog Placeholder */}
       {showAddEdit && (
         <div style={{ position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh", background: "rgba(0,0,0,0.3)", display: "flex", alignItems: "center", justifyContent: "center" }}>

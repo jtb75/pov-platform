@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend,
 } from 'recharts';
+import { apiRequest } from './utils/api';
 
-const COLORS = ['#0254EC', '#E8F0FF', '#FFBFD6', '#3C4948', '#CADAFF', '#F5F5F5', '#7E7E7E'];
+const COLORS = ['#0254EC', '#E8F0FF', '#FFBFD6', '#3C4948', '#CADAFF', '#7E7E7E', '#001142'];
 
 // Dashboard.tsx
 // Displays summary statistics and graphs for requirements, including breakdowns by category/product and link coverage.
@@ -17,13 +18,7 @@ const Dashboard: React.FC = () => {
       setLoading(true);
       setError(null);
       try {
-        const user = localStorage.getItem('user');
-        const token = user ? JSON.parse(user).token : null;
-        let headers: HeadersInit = {};
-        if (token) headers["Authorization"] = `Bearer ${token}`;
-        const res = await fetch("/api/requirements", { headers });
-        if (!res.ok) throw new Error(`Failed to fetch requirements: ${res.status}`);
-        const data = await res.json();
+        const data = await apiRequest("/api/requirements");
         setRequirements(data);
       } catch (e: any) {
         setError(e.message || 'Unknown error');
@@ -66,7 +61,7 @@ const Dashboard: React.FC = () => {
   ];
 
   return (
-    <div style={{ padding: 32 }}>
+    <>
       <h1>Dashboard</h1>
       {loading && <div>Loading requirements...</div>}
       {error && <div style={{ color: 'red' }}>Error: {error}</div>}
@@ -83,7 +78,7 @@ const Dashboard: React.FC = () => {
                   <XAxis dataKey="name" fontSize={13} />
                   <YAxis allowDecimals={false} fontSize={13} />
                   <RechartsTooltip />
-                  <Bar dataKey="value" fill="#0254EC" />
+                  <Bar dataKey="value" fill="var(--blue-wizard)" />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -94,7 +89,7 @@ const Dashboard: React.FC = () => {
                   <XAxis dataKey="name" fontSize={13} />
                   <YAxis allowDecimals={false} fontSize={13} />
                   <RechartsTooltip />
-                  <Bar dataKey="value" fill="#3C4948" />
+                  <Bar dataKey="value" fill="var(--deep-gray)" />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -123,7 +118,7 @@ const Dashboard: React.FC = () => {
           </div>
         </>
       )}
-    </div>
+    </>
   );
 };
 export default Dashboard; 

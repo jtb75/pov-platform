@@ -3,7 +3,7 @@
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
-  background: #FFFFFF;
+  background: var(--white);
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(2,84,236,0.06);
   overflow: hidden;
@@ -11,15 +11,15 @@
 }
 
 .table-unified thead tr {
-  background: #E8F0FF;
+  background: var(--light-blue-01);
 }
 
 .table-unified th {
   padding: 12px 16px;
   text-align: left;
   font-weight: 600;
-  border-bottom: 1px solid #CADAFF;
-  color: #001142;
+  border-bottom: 1px solid var(--light-blue-02);
+  color: var(--serious-blue);
   font-size: 16px;
 }
 
@@ -28,21 +28,21 @@
 }
 
 .table-unified tbody tr:nth-child(even) {
-  background: #E8F0FF;
+  background: var(--light-blue-01);
 }
 
 .table-unified tbody tr:nth-child(odd) {
-  background: #FFFFFF;
+  background: var(--white);
 }
 
 .table-unified tbody tr:hover {
-  background: #FFBFD6;
+  background: var(--frosting-pink);
 }
 
 .table-unified td {
   padding: 10px 16px;
-  border-bottom: 1px solid #CADAFF;
-  color: #3C4948;
+  border-bottom: 1px solid var(--light-blue-02);
+  color: var(--deep-gray);
   font-family: Inter, Arial, sans-serif;
   font-size: 15px;
 }
@@ -60,19 +60,92 @@
 .requirements-table td {
   white-space: normal;
   word-break: break-word;
-  max-width: 220px;
+}
+
+/* Minimize width of the checkbox column */
+.requirements-table th:first-child,
+.requirements-table td:first-child {
+  width: 1%;
+  white-space: nowrap;
+  padding-left: 8px;
+  padding-right: 8px;
+  text-align: center;
+}
+
+/* Minimize width of Category column */
+.requirements-table th:nth-child(2),
+.requirements-table td:nth-child(2) {
+  width: 1%;
+  white-space: nowrap;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Maximize width of Requirement column */
+.requirements-table th:nth-child(3),
+.requirements-table td:nth-child(3) {
+  width: auto;
+  min-width: 300px;
+}
+
+/* Minimize width of Product column */
+.requirements-table th:nth-child(4),
+.requirements-table td:nth-child(4) {
+  width: 1%;
+  white-space: nowrap;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Minimize width of Platform Links and Actions columns */
+.requirements-table th:nth-child(5),
+.requirements-table td:nth-child(5),
+.requirements-table th:last-child,
+.requirements-table td:last-child {
+  width: 1%;
+  white-space: nowrap;
+  padding-left: 8px;
+  padding-right: 8px;
+  text-align: center;
+}
+
+/* Ensure buttons in Platform Links and Actions columns are compact */
+.requirements-table td:nth-child(5) .icon-btn,
+.requirements-table td:last-child .icon-btn {
+  margin-right: 4px;
+}
+
+.requirements-table td:nth-child(5) .icon-btn:last-child,
+.requirements-table td:last-child .icon-btn:last-child {
+  margin-right: 0;
+}
+
+/* Style for the reset button in the first column */
+.requirements-table .reset-button {
+  padding: 4px 8px;
+  min-width: unset;
+  width: auto;
+  font-size: 14px;
+}
+
+/* Adjust filter inputs for Category and Product columns */
+.requirements-table .filter-input-compact {
+  width: 150px !important;
+  min-width: 150px;
 }
 
 .current-user-row {
-  background: #CADAFF !important;
+  background: var(--light-blue-02) !important;
 }
 
 .primary-btn {
   padding: 6px 16px;
   border-radius: 4px;
   border: none;
-  background: #0254EC;
-  color: #fff;
+  background: var(--blue-wizard);
+  color: var(--white);
   font-weight: 500;
   cursor: pointer;
   transition: background 0.2s, color 0.2s;
@@ -81,14 +154,14 @@
   display: inline-block;
 }
 .primary-btn:disabled {
-  background: #b3c6e6;
-  color: #f5f5f5;
+  background: var(--light-blue-02);
+  color: var(--light-gray);
   cursor: not-allowed;
 }
 
 .sidebar-link {
   background: transparent;
-  color: #fff;
+  color: var(--white);
   border: none;
   padding: 1rem;
   margin-bottom: 1rem;
@@ -105,21 +178,21 @@
   box-sizing: border-box;
 }
 .sidebar-link:hover, .sidebar-link.active {
-  background: #0254EC;
-  color: #fff;
+  background: var(--blue-wizard);
+  color: var(--white);
 }
 
 .filter-input {
   width: 100%;
   padding: 4px;
   border-radius: 4px;
-  border: 1px solid #CADAFF;
+  border: 1px solid var(--light-blue-02);
   min-height: 32px;
   box-sizing: border-box;
 }
 
 .modal {
-  background: #fff;
+  background: var(--white);
   padding: 24px;
   border-radius: 8px;
   min-width: 400px;
@@ -128,8 +201,8 @@
 
 .meta-popup {
   position: fixed;
-  background: #fff;
-  border: 1px solid #ccc;
+  background: var(--white);
+  border: 1px solid var(--light-gray);
   border-radius: 6px;
   box-shadow: 0 2px 12px rgba(0,0,0,0.15);
   padding: 16px;

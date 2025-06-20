@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import './Table.css';
 import { useNavigate } from "react-router-dom";
 import Tooltip from './Tooltip';
+import { apiRequest } from './utils/api';
 
 interface Requirement {
   id: number;
@@ -36,7 +37,7 @@ interface SuccessCriteria {
 
 const SuccessCriteriaPage: React.FC = () => {
   const [criteria, setCriteria] = useState<SuccessCriteria[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
   const [deleteLoadingId, setDeleteLoadingId] = useState<number | null>(null);
@@ -62,13 +63,7 @@ const SuccessCriteriaPage: React.FC = () => {
       setLoading(true);
       setError(null);
       try {
-        const user = localStorage.getItem('user');
-        const token = user ? JSON.parse(user).token : null;
-        let headers: HeadersInit = {};
-        if (token) headers["Authorization"] = `Bearer ${token}`;
-        const res = await fetch("/api/success-criteria", { headers });
-        if (!res.ok) throw new Error(`Failed to fetch: ${res.status}`);
-        const data = await res.json();
+        const data = await apiRequest("/api/success-criteria");
         setCriteria(data);
       } catch (e: any) {
         setError(e.message || 'Unknown error');
@@ -84,15 +79,9 @@ const SuccessCriteriaPage: React.FC = () => {
     setDeleteLoadingId(id);
     setDeleteError(null);
     try {
-      const user = localStorage.getItem('user');
-      const token = user ? JSON.parse(user).token : null;
-      let headers: HeadersInit = {};
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-      const res = await fetch(`/api/success-criteria/${id}`, {
-        method: 'DELETE',
-        headers,
+      await apiRequest(`/api/success-criteria/${id}`, {
+        method: 'DELETE'
       });
-      if (!res.ok) throw new Error(`Failed to delete: ${res.status}`);
       setCriteria(list => list.filter(c => c.id !== id));
       setSelected(null);
     } catch (e: any) {
@@ -113,13 +102,8 @@ const SuccessCriteriaPage: React.FC = () => {
     setCreateLoading(true);
     setCreateError(null);
     try {
-      const user = localStorage.getItem('user');
-      const token = user ? JSON.parse(user).token : null;
-      let headers: HeadersInit = { 'Content-Type': 'application/json' };
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-      const res = await fetch('/api/success-criteria', {
+      const newDoc = await apiRequest('/api/success-criteria', {
         method: 'POST',
-        headers,
         body: JSON.stringify({
           title: createForm.title,
           description: createForm.description,
@@ -127,8 +111,6 @@ const SuccessCriteriaPage: React.FC = () => {
           requirements: [],
         }),
       });
-      if (!res.ok) throw new Error(`Failed to create: ${res.status}`);
-      const newDoc = await res.json();
       setCriteria(list => [newDoc, ...list]);
       setShowCreate(false);
       setCreateForm({ title: '', description: '', shared_with: '' });
@@ -171,13 +153,7 @@ const SuccessCriteriaPage: React.FC = () => {
     if (!id || isNaN(id)) return setAddReqError('Enter a valid requirement ID');
     // Fetch requirement from backend
     try {
-      const user = localStorage.getItem('user');
-      const token = user ? JSON.parse(user).token : null;
-      let headers: HeadersInit = {};
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-      const res = await fetch(`/api/requirements`, { headers });
-      if (!res.ok) throw new Error('Failed to fetch requirements');
-      const allReqs = await res.json();
+      const allReqs = await apiRequest(`/api/requirements`);
       const req = allReqs.find((r: any) => r.id === id);
       if (!req) return setAddReqError('Requirement not found');
       setEditReqs(editReqs ? [...editReqs, { id: Date.now(), requirement_id: req.id, custom_text: '', order: (editReqs.length), requirement: req }] : null);
@@ -193,13 +169,8 @@ const SuccessCriteriaPage: React.FC = () => {
     setSaveLoading(true);
     setSaveError(null);
     try {
-      const user = localStorage.getItem('user');
-      const token = user ? JSON.parse(user).token : null;
-      let headers: HeadersInit = { 'Content-Type': 'application/json' };
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-      const res = await fetch(`/api/success-criteria/${detailDoc.id}`, {
+      await apiRequest(`/api/success-criteria/${detailDoc.id}`, {
         method: 'PUT',
-        headers,
         body: JSON.stringify({
           title: detailDoc.title,
           description: detailDoc.description,
@@ -207,7 +178,6 @@ const SuccessCriteriaPage: React.FC = () => {
           requirements: editReqs.map((r, i) => ({ requirement_id: r.requirement_id, custom_text: r.custom_text, order: i })),
         }),
       });
-      if (!res.ok) throw new Error(`Failed to save: ${res.status}`);
       setDetailDoc(null);
       setEditReqs(null);
     } catch (e: any) {
@@ -218,7 +188,7 @@ const SuccessCriteriaPage: React.FC = () => {
   };
 
   return (
-    <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+    <>
       <h1>Success Criteria</h1>
       <button className="primary-btn" style={{ marginBottom: 16 }} onClick={() => setShowCreate(true)}>Create New</button>
       {loading && <div>Loading...</div>}
@@ -352,7 +322,7 @@ const SuccessCriteriaPage: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 };
 
