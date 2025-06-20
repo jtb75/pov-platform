@@ -1,46 +1,75 @@
-# Getting Started with Create React App
+# PoV Platform Frontend
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+This directory contains the React-based frontend for the PoV Platform.
 
-## Available Scripts
+## Getting Started
 
-In the project directory, you can run:
+To run the frontend locally for development, follow these steps:
 
-### `npm start`
+1.  **Port-Forward the Backend**: In a separate terminal, run the following command to forward the backend service from your Kubernetes cluster to your local machine:
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+    ```bash
+    kubectl -n pov-platform port-forward svc/pov-backend 8080:8000
+    ```
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+2.  **Install Dependencies**: Navigate to this directory and install the necessary Node.js packages:
 
-### `npm test`
+    ```bash
+    cd frontend
+    npm install
+    ```
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+3.  **Start the Development Server**: Run the following command to start the local server, which will be accessible at `http://localhost:3000`:
 
-### `npm run build`
+    ```bash
+    npm start
+    ```
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## Component Architecture
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+The frontend is structured into global components that define the overall layout and page-specific components that render the main content.
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+### Global Components
 
-### `npm run eject`
+These components provide the core structure, navigation, and authentication for the application.
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+| File | Description |
+| :--- | :--- |
+| **`Root.tsx`** | The top-level component that fetches the Google OAuth client ID and wraps the application in the `GoogleOAuthProvider`. |
+| **`App.tsx`** | Handles all client-side routing, mapping paths to their corresponding components and protecting them with the `ProtectedRoute`. |
+| **`MainLayout.tsx`** | Defines the primary UI structure, including the persistent sidebar for navigation and a header containing the user profile and logout button. |
+| **`ProtectedRoute.tsx`** | A higher-order component that ensures a user is authenticated before rendering a protected route. It also handles token validation. |
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+### Page-Specific Components
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+These components are responsible for rendering the content of individual pages.
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+| Page | File | Description | Backend API Endpoints |
+| :--- | :--- | :--- | :--- |
+| **Login** | `Login.tsx` | Handles user authentication via Google OAuth. | `/api/login`, `/api/public-google-client-id` |
+| **Dashboard** | `Dashboard.tsx` | Displays summary charts and statistics for requirements. | `/api/requirements` |
+| **Requirements**|`RequirementsPage.tsx`| Displays all requirements in a filterable, sortable table. | `/api/requirements`, `/api/requirements/bulk-upload`, `/api/requirements/mass-delete`, `/api/requirements/mass-edit` |
+| **Success Criteria** | `SuccessCriteriaPage.tsx` | Manages Success Criteria documents, allowing users to create, view, and modify them. | `/api/success-criteria` |
+| **System Status** | `SystemStatusPage.tsx` | Shows the health status of the frontend and backend services. | `/api/health`, `/health.json` |
+| **Audit Logs** | `AuditLogsPage.tsx` | Provides a view of all user actions within the system for administrative review. | `/api/audit-logs` |
+| **User Management** | `UserManagementPage.tsx` | Allows administrators to view and manage user roles. | `/api/users`, `/api/users/promote` |
+| **Session Settings**|`SessionSettingsPage.tsx`| Allows administrators to configure the application's session duration. | `/api/session-config` |
 
-## Learn More
+### Styling
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+The application's styling is managed through a set of global CSS files.
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+| File | Description |
+| :--- | :--- |
+| **`index.css`** | Contains global styles for the application, including the base font and background colors. |
+| **`colors.css`** | Defines the application's color palette as CSS custom properties (variables) for consistent use. |
+| **`MainLayout.css`** | Provides the styling for the main layout, including the sidebar, header, and content area. |
+| **`Table.css`** | Contains the unified styles for all tables in the application, ensuring a consistent look and feel. |
+
+### Utilities
+
+The `src/utils` directory contains helper functions that are used across the application.
+
+| File | Description |
+| :--- | :--- |
+| **`api.ts`** | A set of utility functions for making API requests to the backend. It handles adding the authentication token to headers and checking for token expiration. |

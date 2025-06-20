@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { apiRequest } from './utils/api';
+import { apiRequest, formatDate } from './utils/api';
 import './Table.css';
 
 interface User {
@@ -69,12 +69,8 @@ const UserManagementPage: React.FC = () => {
             <tr key={user.email}>
               <td>{user.email}</td>
               <td>{user.role}</td>
-              <td>{new Date(user.created_at).toLocaleDateString()}</td>
-              <td>
-                {user.last_login
-                  ? new Date(user.last_login).toLocaleDateString()
-                  : 'Never'}
-              </td>
+              <td>{formatDate(user.created_at)}</td>
+              <td>{formatDate(user.last_login)}</td>
               <td>
                 <button
                   onClick={() => handlePromote(user.email, user.role !== 'admin')}

@@ -63,4 +63,30 @@ export const apiRequest = async (url: string, options: RequestInit = {}) => {
     // Let the error propagate to the component
     throw error;
   }
+};
+
+export const formatDate = (dateString?: string | null): string => {
+  if (!dateString) {
+    return 'N/A';
+  }
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) {
+    // Fallback for formats not directly supported by new Date()
+    // E.g., "YYYY-MM-DD HH:MM:SS.mmmmmm" from Python's datetime
+    const parts = dateString.split(/[- :.]/);
+    if (parts.length >= 6) {
+      const year = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1; // JS months are 0-indexed
+      const day = parseInt(parts[2], 10);
+      const hour = parseInt(parts[3], 10);
+      const minute = parseInt(parts[4], 10);
+      const second = parseInt(parts[5], 10);
+      const adjustedDate = new Date(year, month, day, hour, minute, second);
+      if (!isNaN(adjustedDate.getTime())) {
+        return adjustedDate.toLocaleString();
+      }
+    }
+    return 'Invalid Date';
+  }
+  return date.toLocaleString();
 }; 

@@ -90,12 +90,13 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             })}
           </ul>
         </nav>
-        <button className="sidebar-toggle" onClick={() => setSidebarOpen(!isSidebarOpen)}>
-          {isSidebarOpen ? '‹' : '›'}
-        </button>
       </aside>
       <div className="content-wrapper">
         <header className="main-header">
+          <button className="sidebar-toggle" onClick={() => setSidebarOpen(!isSidebarOpen)}>
+            {isSidebarOpen ? '‹' : '›'}
+          </button>
+          <div className="header-placeholder"></div>
           <div className="user-profile">
             {user && (
               <>

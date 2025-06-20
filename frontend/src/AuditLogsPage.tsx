@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { apiRequest } from './utils/api';
+import { apiRequest, formatDate } from './utils/api';
 import './Table.css';
 
 // AuditLogsPage.tsx
@@ -145,11 +145,11 @@ const AuditLogsPage: React.FC = () => {
             ) : (
               pagedLogs.map((log, idx) => (
                 <tr key={log.id} style={{ transition: 'background 0.2s' }}>
-                  <td style={{ padding: '10px 16px', borderBottom: '1px solid #CADAFF', fontFamily: 'Inter, Arial, sans-serif', fontSize: 15, color: '#3C4948', whiteSpace: 'nowrap' }}>{new Date(log.created_at).toLocaleString()}</td>
-                  <td style={{ padding: '10px 16px', borderBottom: '1px solid #CADAFF', fontFamily: 'Inter, Arial, sans-serif', fontSize: 15, color: '#3C4948' }}>{log.user_email}</td>
-                  <td style={{ padding: '10px 16px', borderBottom: '1px solid #CADAFF', color: '#3C4948' }}>{log.action}</td>
-                  <td style={{ padding: '10px 16px', borderBottom: '1px solid #CADAFF', color: '#3C4948', maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={log.details}>{log.details}</td>
-                  <td style={{ padding: '10px 16px', borderBottom: '1px solid #CADAFF', color: '#3C4948' }}>{log.ip_address}</td>
+                  <td style={{ padding: '10px 16px', borderBottom: '1px solid var(--light-blue-02)', fontFamily: 'Inter, Arial, sans-serif', fontSize: 15, color: 'var(--deep-gray)', whiteSpace: 'nowrap' }}>{formatDate(log.created_at)}</td>
+                  <td style={{ padding: '10px 16px', borderBottom: '1px solid var(--light-blue-02)', fontFamily: 'Inter, Arial, sans-serif', fontSize: 15, color: 'var(--deep-gray)' }}>{log.user_email}</td>
+                  <td style={{ padding: '10px 16px', borderBottom: '1px solid var(--light-blue-02)', color: 'var(--deep-gray)' }}>{log.action}</td>
+                  <td style={{ padding: '10px 16px', borderBottom: '1px solid var(--light-blue-02)', color: 'var(--deep-gray)', maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={log.details}>{log.details}</td>
+                  <td style={{ padding: '10px 16px', borderBottom: '1px solid var(--light-blue-02)', color: 'var(--deep-gray)' }}>{log.ip_address}</td>
                 </tr>
               ))
             )}
